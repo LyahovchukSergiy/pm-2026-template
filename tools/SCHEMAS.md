@@ -1,6 +1,6 @@
 # Схеми артефактів курсу «Управління ІТ проєктами»
 
-Згенеровано з `tools/schemas.json`, версія схеми **1.4.0**, оновлено 2026-09-03.
+Згенеровано з `tools/schemas.json`, версія схеми **1.7.1**, оновлено 2026-09-05.
 
 Файл не редагується руками: правиться спека, далі запускається
 `python3 tools/generate_schema_docs.py`.
@@ -23,7 +23,7 @@
 | `single_source` | одне число має одне місце: оцінка тільки в estimates.csv, дати і статус тільки у flow.csv, беклог їх не дублює |
 | `stable_ids` | ID фіксуються при створенні і не перенумеровуються до кінця семестру |
 
-Формати ключів: `story_id` як `S-01`, `stakeholder_id` як `ST-01`, `wbs_id` як `1.2.3`, `release_id` як `REL-1`, `flow_item_id` як `F-001`, `risk_id` як `R-01`, `debt_id` як `D-01`, `activity_id` як `A-01`, `communication_id` як `C-01`, `budget_line_id` як `B-01`, `source_id` як `SRC-01`.
+Формати ключів: `story_id` як `S-01`, `stakeholder_id` як `ST-01`, `wbs_id` як `1.2.3`, `release_id` як `REL-1`, `flow_item_id` як `F-001`, `risk_id` як `R-01`, `debt_id` як `D-01`, `activity_id` як `A-01`, `communication_id` як `C-01`, `budget_line_id` як `B-01`, `source_id` як `SRC-01`, `task_id` як `T-01`, `criterion_id` як `SC-01`.
 
 
 ## Словники значень
@@ -42,7 +42,8 @@
 - `influence`: `low`, `high`
 - `interest`: `low`, `high`
 - `lr02_case`: `C-1`, `C-2`, `C-3`
-- `priority_method`: `moscow`, `rice`, `wsjf`, `kano`
+- `moscow_class`: `must`, `should`, `could`, `wont`
+- `priority_method`: `moscow`, `rice`, `wsjf`
 - `pull`: `predictive`, `adaptive`, `neutral`
 - `raci_role`: `R`, `A`, `C`, `I`
 - `risk_category`: `technical`, `external`, `organizational`, `project_management`
@@ -50,6 +51,7 @@
 - `risk_strategy`: `avoid`, `mitigate`, `transfer`, `accept`, `escalate`
 - `stakeholder_strategy`: `manage_closely`, `keep_satisfied`, `keep_informed`, `monitor`
 - `story_points`: `0`, `1`, `2`, `3`, `5`, `8`, `13`, `21`, `?`
+- `yes_no`: `yes`, `no`
 
 ## Файли
 
@@ -59,8 +61,10 @@
 | ЛР2 | `lr02_approach/approach.csv` | `case_id + criterion` | 18 |
 | ЛР2 | `lr02_approach/decision.csv` | `case_id` | 3 |
 | ЛР5 | `lr05_charter/stakeholders.csv` | `stakeholder_id` | 5 |
+| ЛР5 | `lr05_charter/success_criteria.csv` | `criterion_id` | 3 |
 | ЛР6 | `lr06_backlog/backlog.csv` | `story_id` | 15 |
 | ЛР7 | `lr07_wbs/wbs.csv` | `wbs_id` | 12 |
+| ЛР7 | `lr07_wbs/schedule.csv` | `task_id` | 10 |
 | ЛР7 | `lr07_wbs/roadmap.csv` | `release_id` | 2 |
 | ЛР8 | `lr08_poker/votes.csv` | `story_id + round + voter` | 12 |
 | ЛР8 | `lr08_poker/estimates.csv` | `story_id` | 8 |
@@ -85,8 +89,10 @@ flowchart LR
   lr02_approach_approach_csv["ЛР2<br/>lr02_approach/approach.csv"]
   lr02_approach_decision_csv["ЛР2<br/>lr02_approach/decision.csv"]
   lr05_charter_stakeholders_csv["ЛР5<br/>lr05_charter/stakeholders.csv"]
+  lr05_charter_success_criteria_csv["ЛР5<br/>lr05_charter/success_criteria.csv"]
   lr06_backlog_backlog_csv["ЛР6<br/>lr06_backlog/backlog.csv"]
   lr07_wbs_wbs_csv["ЛР7<br/>lr07_wbs/wbs.csv"]
+  lr07_wbs_schedule_csv["ЛР7<br/>lr07_wbs/schedule.csv"]
   lr07_wbs_roadmap_csv["ЛР7<br/>lr07_wbs/roadmap.csv"]
   lr08_poker_votes_csv["ЛР8<br/>lr08_poker/votes.csv"]
   lr08_poker_estimates_csv["ЛР8<br/>lr08_poker/estimates.csv"]
@@ -100,7 +106,10 @@ flowchart LR
   lr16_budget_budget_csv["ЛР16<br/>lr16_budget/budget.csv"]
   lr01_case_README_md["ЛР1<br/>lr01_case/README.md"]
   lr02_approach_decision_csv -->|case_id| lr02_approach_approach_csv
-  lr06_backlog_backlog_csv -->|story_ids| lr07_wbs_roadmap_csv
+  lr05_charter_stakeholders_csv -->|accepted_by| lr05_charter_success_criteria_csv
+  lr05_charter_success_criteria_csv -->|success_criterion| lr06_backlog_backlog_csv
+  lr07_wbs_wbs_csv -->|wbs_id| lr07_wbs_schedule_csv
+  lr07_wbs_schedule_csv -->|predecessors| lr07_wbs_schedule_csv
   lr06_backlog_backlog_csv -->|story_id| lr08_poker_votes_csv
   lr06_backlog_backlog_csv -->|story_id| lr08_poker_estimates_csv
   lr06_backlog_backlog_csv -->|related_story_ids| lr11_risks_quality_risks_csv
@@ -108,6 +117,7 @@ flowchart LR
   lr05_charter_stakeholders_csv -->|stakeholder_id| lr12_communication_communication_csv
   lr06_backlog_backlog_csv -->|story_id| lr14_metrics_flow_csv
   lr01_case_sources_csv -.->|X-7, X-8| lr01_case_README_md
+  lr06_backlog_backlog_csv -.->|X-1, X-13| lr07_wbs_roadmap_csv
   lr07_wbs_wbs_csv -.->|X-4| lr16_budget_budget_csv
   lr08_poker_estimates_csv -.->|X-3| lr09_forecast_forecast_csv
 ```
@@ -205,7 +215,7 @@ case_id,chosen_approach,main_conflict,contract_impact,first_step
 | `influence` | значення зі словника | так | одне з: `low`, `high` | Вплив на проєкт за матрицею |
 | `attitude` | значення зі словника | так | одне з: `supporter`, `neutral`, `blocker` | Ставлення до проєкту |
 | `strategy` | значення зі словника | так | одне з: `manage_closely`, `keep_satisfied`, `keep_informed`, `monitor` | Стратегія роботи, має відповідати квадранту |
-| `owner` | текст | так |  | Хто в команді веде ці відносини |
+| `owner` | текст | так |  | Хто веде ці відносини з вашого боку: ви або роль зі складу вашого варіанта |
 
 Рядок заголовків:
 
@@ -217,6 +227,32 @@ stakeholder_id,name_or_role,organization,interest,influence,attitude,strategy,ow
 
 - `ST-1` (error): Стратегія відповідає квадранту: high/high це manage_closely, низький інтерес і високий вплив це keep_satisfied, високий інтерес і низький вплив це keep_informed, low/low це monitor
 - `ST-2` (error): Щонайменше один стейкхолдер має стратегію manage_closely
+
+### Критерії успіху проєкту, `lr05_charter/success_criteria.csv`
+
+Робота ЛР5. Ключ: `criterion_id`. Мінімум рядків: 3.
+
+| Колонка | Тип | Обов'язкова | Обмеження | Опис |
+| --- | --- | :-: | --- | --- |
+| `criterion_id` | ідентифікатор | так | формат `^SC-\d{2}$`; унікальне | Ключ критерію, живе далі в беклозі і в звіті про закриття |
+| `criterion` | текст | так |  | Що саме вважається успіхом, одна фраза без слова «зручний» |
+| `metric` | текст | так |  | Що міряємо: величина, а не побажання |
+| `baseline` | текст | ні |  | Як зараз, до проєкту. Порожньо, якщо міряти нічого |
+| `target` | текст | так |  | Цільове значення з числом і одиницею |
+| `measure_how` | текст | так |  | Звідки беруться дані і коли вимірюємо |
+| `accepted_by` | ідентифікатор | так | посилання на `lr05_charter/stakeholders.csv:stakeholder_id` | Стейкхолдер, який приймає цей критерій |
+
+Рядок заголовків:
+
+```
+criterion_id,criterion,metric,baseline,target,measure_how,accepted_by
+```
+
+Правила файла:
+
+- `SC-1` (error): У target є число: критерій без числа не приймається жодною стороною
+- `SC-2` (error): measure_how не повторює target і називає джерело даних або момент виміру
+- `SC-3` (warning): Різних значень accepted_by щонайменше два: якщо всі критерії приймає одна людина, карта стейкхолдерів у статуті не працює
 
 ### Беклог продукту, `lr06_backlog/backlog.csv`
 
@@ -230,22 +266,33 @@ stakeholder_id,name_or_role,organization,interest,influence,attitude,strategy,ow
 | `as_a` | текст | так |  | Роль користувача |
 | `i_want` | текст | так |  | Що хоче зробити |
 | `so_that` | текст | так |  | Яку цінність отримує |
-| `acceptance_criteria` | текст | так | список через `;` | Критерії приймання через крапку з комою, кожен перевірюваний |
-| `priority_method` | значення зі словника | так | одне з: `moscow`, `rice`, `wsjf`, `kano` | Метод пріоритезації, однаковий для всього беклогу |
+| `acceptance_criteria` | текст | ні | список через `;` | Критерії приймання через крапку з комою, кожен перевірюваний. Обов'язкові для історій першого релізу, у далеких історіях лишаються порожніми свідомо |
+| `priority_method` | значення зі словника | так | одне з: `moscow`, `rice`, `wsjf` | Метод пріоритезації, однаковий для всього беклогу |
 | `priority_score` | текст | так |  | Значення методу: клас MoSCoW або число RICE чи WSJF |
+| `priority_inputs` | текст | ні | список через `;` | Складники методу через крапку з комою у вигляді ключ=число: reach=400;impact=2;confidence=0.8;effort=1.5 для RICE, business_value=8;time_criticality=5;risk_reduction=3;job_size=3 для WSJF. Для MoSCoW порожньо |
 | `rank` | ціле число | так | унікальне; не менше 1 | Місце в черзі, суцільна нумерація від 1 |
+| `release` | ідентифікатор | ні | формат `^REL-\d{1,2}$` | Реліз, у який історія запланована. Порожньо, якщо історія ще чекає черги. Джерело правди складу релізу: roadmap.csv його не дублює |
+| `success_criterion` | ідентифікатор | ні | посилання на `lr05_charter/success_criteria.csv:criterion_id` | Критерій успіху зі статуту, на який працює історія. Обов'язковий для історій першого релізу |
 
 Рядок заголовків:
 
 ```
-story_id,epic,title,as_a,i_want,so_that,acceptance_criteria,priority_method,priority_score,rank
+story_id,epic,title,as_a,i_want,so_that,acceptance_criteria,priority_method,priority_score,priority_inputs,rank,release,success_criterion
 ```
 
 Правила файла:
 
 - `BL-1` (error): Значення rank утворюють суцільний ряд від 1 до кількості історій без пропусків
 - `BL-2` (error): Один priority_method на весь файл
-- `BL-3` (warning): Історія не довша за один спринт: перевіряється після ЛР8 за final_estimate
+- `BL-3` (error): У кожної історії з release REL-1 заповнені acceptance_criteria
+- `BL-4` (error): У перший реліз REL-1 включені щонайменше вісім історій
+- `BL-5` (error): У кожної історії з release REL-1 заповнений success_criterion
+- `BL-6` (error): Для методів rice і wsjf priority_inputs містить усі складники методу, а priority_score дорівнює результату формули з похибкою до 0.1
+- `BL-7` (error): Для методу moscow priority_score це must, should, could або wont
+- `BL-8` (warning): Жодна історія без релізу не стоїть у черзі вище за історію першого релізу
+- `BL-9` (warning): Для методу moscow частка must серед історій першого релізу не перевищує 60 відсотків
+- `BL-10` (warning): Різних епіків у беклозі щонайменше три
+- `BL-11` (warning): Жодна історія першого релізу не має final_estimate 21 в estimates.csv: історія на цілий спринт це епік
 
 ### WBS проєкту, `lr07_wbs/wbs.csv`
 
@@ -274,6 +321,35 @@ wbs_id,parent_id,name,level,deliverable,owner,estimate_hours
 - `WBS-3` (error): Правило 100%: estimate_hours нелистового вузла дорівнює сумі дітей
 - `WBS-4` (warning): У WBS присутні пакети управління, тестування і розгортання: типова забута робота
 
+### Календарний план проєкту, `lr07_wbs/schedule.csv`
+
+Робота ЛР7. Ключ: `task_id`. Мінімум рядків: 10.
+
+| Колонка | Тип | Обов'язкова | Обмеження | Опис |
+| --- | --- | :-: | --- | --- |
+| `task_id` | ідентифікатор | так | формат `^T-\d{2}$`; унікальне | Ключ роботи календарного плану |
+| `wbs_id` | ідентифікатор | так | посилання на `lr07_wbs/wbs.csv:wbs_id` | Листовий вузол WBS, до якого належить робота |
+| `name` | текст | так |  | Назва роботи або віхи |
+| `duration_days` | ціле число | так | не менше 0 | Тривалість у робочих днях; у віхи 0 |
+| `predecessors` | список ідентифікаторів | ні | формат `^T-\d{2}$`; посилання на `lr07_wbs/schedule.csv:task_id` | Попередники через крапку з комою, зв'язок finish to start; порожньо у стартових робіт |
+| `milestone` | значення зі словника | так | одне з: `yes`, `no` | Чи є рядок віхою |
+| `float_days` | ціле число | так | не менше 0 | Повний резерв роботи в днях, порахований студентом |
+| `is_critical` | значення зі словника | так | одне з: `yes`, `no` | Чи лежить робота на критичному шляху |
+
+Рядок заголовків:
+
+```
+task_id,wbs_id,name,duration_days,predecessors,milestone,float_days,is_critical
+```
+
+Правила файла:
+
+- `SCH-1` (error): У графі залежностей немає циклів: робота не може бути власним попередником навіть через ланцюг
+- `SCH-2` (error): float_days дорівнює повному резерву, порахованому за тривалостями і залежностями
+- `SCH-3` (error): is_critical дорівнює yes рівно в тих робіт, чий повний резерв нульовий
+- `SCH-4` (warning): У плані щонайменше дві віхи: без контрольних точок графік не має чим міряти рух
+- `SCH-5` (warning): Віха має нульову тривалість: milestone це подія, а не робота
+
 ### Дорожня карта релізів, `lr07_wbs/roadmap.csv`
 
 Робота ЛР7. Ключ: `release_id`. Мінімум рядків: 2.
@@ -284,18 +360,16 @@ wbs_id,parent_id,name,level,deliverable,owner,estimate_hours
 | `name` | текст | так |  | Назва релізу або milestone |
 | `target_date` | дата | так |  | Цільова дата |
 | `goal` | текст | так |  | Яку цінність дає реліз |
-| `story_ids` | список ідентифікаторів | так | посилання на `lr06_backlog/backlog.csv:story_id` | Історії релізу через крапку з комою |
 
 Рядок заголовків:
 
 ```
-release_id,name,target_date,goal,story_ids
+release_id,name,target_date,goal
 ```
 
 Правила файла:
 
-- `RM-1` (error): Кожен story_id існує в беклозі
-- `RM-2` (error): Історія не повторюється у двох релізах
+- `RM-1` (warning): Кожен release_id зустрічається щонайменше в одній історії lr06_backlog/backlog.csv: реліз без історій це дата, а не реліз
 - `RM-3` (warning): Дати релізів зростають за номером
 
 ### Голоси сесії planning poker, `lr08_poker/votes.csv`
@@ -502,7 +576,7 @@ item_id,stakeholder_id,message,channel,frequency,format,owner
 
 - `CM-1` (error): Кожен стейкхолдер зі стратегією manage_closely або keep_satisfied має щонайменше один рядок
 
-### Потік задач команди, дані з дошки ЛР4, `lr14_metrics/flow.csv`
+### Потік задач: завершені картки дошки ЛР4 і картки двох реальних спринтів M5, `lr14_metrics/flow.csv`
 
 Робота ЛР14. Ключ: `item_id`. Мінімум рядків: 12.
 
@@ -561,28 +635,33 @@ line_id,category,role_or_item,hours,rate,amount,note
 | Правило | Рівень | Опис |
 | :-: | :-: | --- |
 | `X-1` | error | Кожен story_id в estimates.csv, votes.csv, roadmap.csv, risks.csv і flow.csv існує в backlog.csv |
-| `X-2` | error | Кожен stakeholder_id у raci.csv і communication.csv існує в stakeholders.csv |
+| `X-2` | error | Кожен stakeholder_id у raci.csv, communication.csv і success_criteria.csv існує в stakeholders.csv |
 | `X-3` | error | remaining_points у forecast.csv дорівнює сумі final_estimate історій сценарію з estimates.csv |
 | `X-4` | warning | Сума hours категорії labor у budget.csv відрізняється від суми estimate_hours листових вузлів wbs.csv не більше ніж на 15 відсотків |
-| `X-5` | warning | Історії з релізу REL-1 присутні в estimates.csv: план першого релізу оцінений |
+| `X-5` | warning | Кожна історія з release REL-1 у backlog.csv присутня в estimates.csv: план першого релізу оцінений |
 | `X-6` | error | Версія схеми в README.md репозиторію команди збігається з версією цієї спеки |
 | `X-7` | error | Кожен source_id із lr01_case/sources.csv згадується в тексті lr01_case/README.md у форматі [SRC-01] |
 | `X-8` | error | Кожне посилання [SRC-..] у тексті lr01_case/README.md існує в sources.csv |
 | `X-9` | error | Кожен case_id із lr02_approach/decision.csv має рівно шість рядків у lr02_approach/approach.csv, по одному на кожен критерій |
 | `X-10` | error | Критерій main_conflict із lr02_approach/decision.csv має в lr02_approach/approach.csv рядок цього ж кейсу зі значенням pull, протилежним обраному підходу |
+| `X-11` | error | Кожен wbs_id у lr07_wbs/schedule.csv вказує на листовий вузол lr07_wbs/wbs.csv: календарний план планує роботу, а не заголовок розділу |
+| `X-12` | warning | Кожен листовий вузол lr07_wbs/wbs.csv зустрічається щонайменше в одній роботі lr07_wbs/schedule.csv: запланована робота без місця в календарі не робиться ніколи |
+| `X-13` | error | Кожне значення release у lr06_backlog/backlog.csv існує в lr07_wbs/roadmap.csv |
+| `X-14` | warning | Кожен criterion_id зі lr05_charter/success_criteria.csv згаданий щонайменше в одній історії першого релізу |
 
 ## Артефакти у Markdown
 
 | Робота | Файл | Що містить |
 | :-: | --- | --- |
-| ЛР1 | `README.md` | Назва команди, підгрупа, тема, склад і ролі, посилання на трекер і дошку, версія схеми артефактів. |
+| ЛР1 | `README.md` | Прізвище і GitHub-логін, підгрупа, тема, номер варіанта вхідних умов, посилання на трекер і дошку, версія схеми артефактів. |
 | ЛР1 | `lr01_case/README.md` | Кейс із перевірюваними джерелами, патерни провалу, висновки для власного проєкту. |
 | ЛР2 | `lr02_approach/README.md` | Розбір трьох кейсів словами: конфлікт критеріїв, ціна вибору, стрес-тест контрактом і підхід для власної теми. Матриця і рішення лежать поруч у approach.csv і decision.csv. |
 | ЛР3 | `lr03_sprint_simulation/sprint_log.md` | Самостійна робота ЛР3: ціль спринта, оцінки і ємність, три дні, реакція на конверти, огляд, ретроспектива. Копіюється під логін виконавця, балів не дає, є входом у ЛР4. |
 | ЛР4 | `lr04_kanban/README.md` | Definition of Workflow, WIP-ліміти і правило їх дотримання, дванадцять карток із трьома датами, наслідки конвертів, cycle time і вузьке місце. Балів не дає, є входом у ЛР14. |
-| ЛР5 | `lr05_charter/README.md` | Одна сторінка: мета, обсяг, обмеження, критерії успіху. Карта стейкхолдерів лежить поруч у stakeholders.csv. |
-| ЛР6 | `lr06_backlog/README.md` | Обраний метод пріоритезації і чому саме він, посилання на трекер, скриншот як ілюстрація. |
-| ЛР7 | `lr07_wbs/README.md` | Як перевіряли правило 100%, що свідомо поза обсягом, логіка нарізки релізів. |
+| ЛР5 | `lr05_charter/README.md` | Мета, business case з порівнянням варіантів рішення, обсяг з переліком «не робимо», обмеження зі свого варіанта, пояснення критеріїв успіху і матриця інтерес-вплив. Критерії лежать поруч у success_criteria.csv, стейкхолдери у stakeholders.csv. |
+| ЛР6 | `lr06_backlog/README.md` | Обраний метод пріоритезації і чому саме він, розрахунок пріоритетів, нарізка першого релізу проти строку і ємності вашого варіанта, посилання на трекер. |
+| ЛР6 | `lr06_backlog/dor.md` | За яких умов історію можна брати в спринт: перелік умов, межа розумного і те, що свідомо не вимагається. |
+| ЛР7 | `lr07_wbs/README.md` | Стеля годин зі складу команди варіанта, як перевіряли правило 100%, що свідомо поза обсягом, критичний шлях проти строку варіанта, віхи і логіка нарізки релізів. |
 | ЛР8 | `lr08_poker/README.md` | Інструмент, склад учасників, історії з найбільшим розкидом і що з'ясувалося в розмові. |
 | ЛР9 | `lr09_forecast/README.md` | Як рахували, що означає P50 і P85 для замовника, яку дату команда називає вголос. |
 | ЛР10 | `lr10_demo/review.md` | Результат валідатора, перевірка наскрізності, три зауваження з адресами файлів і рядків, одна знахідка. Балів не дає. |
@@ -593,9 +672,10 @@ line_id,category,role_or_item,hours,rate,amount,note
 | ЛР13 | `lr13_roleplay/dialogue.md` | Три відповіді стейкхолдерам, другі репліки після конвертів, таблиця ескалації. Копіюється під логін виконавця, балів не дає, є входом у ЛР15. |
 | ЛР14 | `lr14_metrics/README.md` | Діагноз за еталонними даними курсу і за власними flow-метриками з flow.csv, рекомендації команді. |
 | ЛР15 | `lr15_status_report/README.md` | Звіт за шаблоном курсу: стан, прогрес, ризики, рішення, яких потребує замовник. |
+| ЛР15 | `lr15_status_report/change_request.md` | Що просить замовник, скільки це коштує в обсязі, строку, бюджеті, якості і ризиках, яке рішення ухвалено: approve, reject або defer. |
 | ЛР16 | `lr16_budget/README.md` | Валюта проєкту, відсоток contingency і звідки він узявся, порівняння Fixed Price проти Time and Material і обрана модель. |
 | ЛР17 | `lr17_ai_assistant/README.md` | Що автоматизували, промпти, і головне: де інструмент помилявся і як це виявили. |
-| ЛР18 | `lr18_closure/lessons_learned.md` | Що спрацювало, що ні, що робили б інакше. Здається в репозиторій до пари захисту. |
+| ЛР18 | `lr18_closure/closure_report.md` | Що прийнято, що не завершено, як передається продукт, яка цінність отримана, lessons learned. Здається в репозиторій до пари захисту. |
 
 ## Рівні перевірки
 

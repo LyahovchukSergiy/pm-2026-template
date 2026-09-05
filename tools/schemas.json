@@ -1,8 +1,8 @@
 {
-  "schema_version": "1.4.0",
-  "updated": "2026-09-03",
+  "schema_version": "1.7.1",
+  "updated": "2026-09-05",
   "course": "Управління ІТ проєктами, 2026",
-  "note": "Джерело правди для схем артефактів. Валідатор, умови робіт і шаблон репозиторію команди беруть колонки звідси. Правити тільки тут, далі перегенерувати SCHEMAS.md і шаблони.",
+  "note": "Джерело правди для схем артефактів. Валідатор, умови робіт і шаблон репозиторію студента беруть колонки звідси. Правити тільки тут, далі перегенерувати SCHEMAS.md і шаблони.",
   "conventions": {
     "encoding": "utf-8",
     "delimiter": ",",
@@ -27,7 +27,9 @@
       "activity_id": "A-01",
       "communication_id": "C-01",
       "budget_line_id": "B-01",
-      "source_id": "SRC-01"
+      "source_id": "SRC-01",
+      "task_id": "T-01",
+      "criterion_id": "SC-01"
     }
   },
   "enums": {
@@ -53,8 +55,13 @@
     "priority_method": [
       "moscow",
       "rice",
-      "wsjf",
-      "kano"
+      "wsjf"
+    ],
+    "moscow_class": [
+      "must",
+      "should",
+      "could",
+      "wont"
     ],
     "story_points": [
       "0",
@@ -169,6 +176,10 @@
       "predictive",
       "adaptive",
       "hybrid"
+    ],
+    "yes_no": [
+      "yes",
+      "no"
     ]
   },
   "files": [
@@ -431,7 +442,7 @@
           "name": "owner",
           "type": "text",
           "required": true,
-          "description": "Хто в команді веде ці відносини"
+          "description": "Хто веде ці відносини з вашого боку: ви або роль зі складу вашого варіанта"
         }
       ],
       "rules": [
@@ -444,6 +455,77 @@
           "id": "ST-2",
           "severity": "error",
           "text": "Щонайменше один стейкхолдер має стратегію manage_closely"
+        }
+      ]
+    },
+    {
+      "path": "lr05_charter/success_criteria.csv",
+      "work": "ЛР5",
+      "title": "Критерії успіху проєкту",
+      "key": "criterion_id",
+      "min_rows": 3,
+      "columns": [
+        {
+          "name": "criterion_id",
+          "type": "id",
+          "pattern": "^SC-\\d{2}$",
+          "required": true,
+          "unique": true,
+          "description": "Ключ критерію, живе далі в беклозі і в звіті про закриття"
+        },
+        {
+          "name": "criterion",
+          "type": "text",
+          "required": true,
+          "description": "Що саме вважається успіхом, одна фраза без слова «зручний»"
+        },
+        {
+          "name": "metric",
+          "type": "text",
+          "required": true,
+          "description": "Що міряємо: величина, а не побажання"
+        },
+        {
+          "name": "baseline",
+          "type": "text",
+          "required": false,
+          "description": "Як зараз, до проєкту. Порожньо, якщо міряти нічого"
+        },
+        {
+          "name": "target",
+          "type": "text",
+          "required": true,
+          "description": "Цільове значення з числом і одиницею"
+        },
+        {
+          "name": "measure_how",
+          "type": "text",
+          "required": true,
+          "description": "Звідки беруться дані і коли вимірюємо"
+        },
+        {
+          "name": "accepted_by",
+          "type": "id",
+          "ref": "lr05_charter/stakeholders.csv:stakeholder_id",
+          "required": true,
+          "description": "Стейкхолдер, який приймає цей критерій"
+        }
+      ],
+      "rules": [
+        {
+          "id": "SC-1",
+          "severity": "error",
+          "text": "У target є число: критерій без числа не приймається жодною стороною"
+        },
+        {
+          "id": "SC-2",
+          "severity": "error",
+          "text": "measure_how не повторює target і називає джерело даних або момент виміру"
+        },
+        {
+          "id": "SC-3",
+          "severity": "warning",
+          "text": "Різних значень accepted_by щонайменше два: якщо всі критерії приймає одна людина, карта стейкхолдерів у статуті не працює"
         }
       ]
     },
@@ -495,10 +577,10 @@
         {
           "name": "acceptance_criteria",
           "type": "text",
-          "required": true,
+          "required": false,
           "list": true,
           "min_items": 1,
-          "description": "Критерії приймання через крапку з комою, кожен перевірюваний"
+          "description": "Критерії приймання через крапку з комою, кожен перевірюваний. Обов'язкові для історій першого релізу, у далеких історіях лишаються порожніми свідомо"
         },
         {
           "name": "priority_method",
@@ -514,12 +596,33 @@
           "description": "Значення методу: клас MoSCoW або число RICE чи WSJF"
         },
         {
+          "name": "priority_inputs",
+          "type": "text",
+          "list": true,
+          "required": false,
+          "description": "Складники методу через крапку з комою у вигляді ключ=число: reach=400;impact=2;confidence=0.8;effort=1.5 для RICE, business_value=8;time_criticality=5;risk_reduction=3;job_size=3 для WSJF. Для MoSCoW порожньо"
+        },
+        {
           "name": "rank",
           "type": "int",
           "required": true,
           "unique": true,
           "min": 1,
           "description": "Місце в черзі, суцільна нумерація від 1"
+        },
+        {
+          "name": "release",
+          "type": "id",
+          "pattern": "^REL-\\d{1,2}$",
+          "required": false,
+          "description": "Реліз, у який історія запланована. Порожньо, якщо історія ще чекає черги. Джерело правди складу релізу: roadmap.csv його не дублює"
+        },
+        {
+          "name": "success_criterion",
+          "type": "id",
+          "ref": "lr05_charter/success_criteria.csv:criterion_id",
+          "required": false,
+          "description": "Критерій успіху зі статуту, на який працює історія. Обов'язковий для історій першого релізу"
         }
       ],
       "rules": [
@@ -535,8 +638,48 @@
         },
         {
           "id": "BL-3",
+          "severity": "error",
+          "text": "У кожної історії з release REL-1 заповнені acceptance_criteria"
+        },
+        {
+          "id": "BL-4",
+          "severity": "error",
+          "text": "У перший реліз REL-1 включені щонайменше вісім історій"
+        },
+        {
+          "id": "BL-5",
+          "severity": "error",
+          "text": "У кожної історії з release REL-1 заповнений success_criterion"
+        },
+        {
+          "id": "BL-6",
+          "severity": "error",
+          "text": "Для методів rice і wsjf priority_inputs містить усі складники методу, а priority_score дорівнює результату формули з похибкою до 0.1"
+        },
+        {
+          "id": "BL-7",
+          "severity": "error",
+          "text": "Для методу moscow priority_score це must, should, could або wont"
+        },
+        {
+          "id": "BL-8",
           "severity": "warning",
-          "text": "Історія не довша за один спринт: перевіряється після ЛР8 за final_estimate"
+          "text": "Жодна історія без релізу не стоїть у черзі вище за історію першого релізу"
+        },
+        {
+          "id": "BL-9",
+          "severity": "warning",
+          "text": "Для методу moscow частка must серед історій першого релізу не перевищує 60 відсотків"
+        },
+        {
+          "id": "BL-10",
+          "severity": "warning",
+          "text": "Різних епіків у беклозі щонайменше три"
+        },
+        {
+          "id": "BL-11",
+          "severity": "warning",
+          "text": "Жодна історія першого релізу не має final_estimate 21 в estimates.csv: історія на цілий спринт це епік"
         }
       ]
     },
@@ -618,6 +761,99 @@
       ]
     },
     {
+      "path": "lr07_wbs/schedule.csv",
+      "work": "ЛР7",
+      "title": "Календарний план проєкту",
+      "key": "task_id",
+      "min_rows": 10,
+      "columns": [
+        {
+          "name": "task_id",
+          "type": "id",
+          "pattern": "^T-\\d{2}$",
+          "required": true,
+          "unique": true,
+          "description": "Ключ роботи календарного плану"
+        },
+        {
+          "name": "wbs_id",
+          "type": "id",
+          "ref": "lr07_wbs/wbs.csv:wbs_id",
+          "required": true,
+          "description": "Листовий вузол WBS, до якого належить робота"
+        },
+        {
+          "name": "name",
+          "type": "text",
+          "required": true,
+          "description": "Назва роботи або віхи"
+        },
+        {
+          "name": "duration_days",
+          "type": "int",
+          "required": true,
+          "min": 0,
+          "description": "Тривалість у робочих днях; у віхи 0"
+        },
+        {
+          "name": "predecessors",
+          "type": "id_list",
+          "pattern": "^T-\\d{2}$",
+          "ref": "lr07_wbs/schedule.csv:task_id",
+          "required": false,
+          "description": "Попередники через крапку з комою, зв'язок finish to start; порожньо у стартових робіт"
+        },
+        {
+          "name": "milestone",
+          "type": "enum",
+          "enum": "yes_no",
+          "required": true,
+          "description": "Чи є рядок віхою"
+        },
+        {
+          "name": "float_days",
+          "type": "int",
+          "required": true,
+          "min": 0,
+          "description": "Повний резерв роботи в днях, порахований студентом"
+        },
+        {
+          "name": "is_critical",
+          "type": "enum",
+          "enum": "yes_no",
+          "required": true,
+          "description": "Чи лежить робота на критичному шляху"
+        }
+      ],
+      "rules": [
+        {
+          "id": "SCH-1",
+          "severity": "error",
+          "text": "У графі залежностей немає циклів: робота не може бути власним попередником навіть через ланцюг"
+        },
+        {
+          "id": "SCH-2",
+          "severity": "error",
+          "text": "float_days дорівнює повному резерву, порахованому за тривалостями і залежностями"
+        },
+        {
+          "id": "SCH-3",
+          "severity": "error",
+          "text": "is_critical дорівнює yes рівно в тих робіт, чий повний резерв нульовий"
+        },
+        {
+          "id": "SCH-4",
+          "severity": "warning",
+          "text": "У плані щонайменше дві віхи: без контрольних точок графік не має чим міряти рух"
+        },
+        {
+          "id": "SCH-5",
+          "severity": "warning",
+          "text": "Віха має нульову тривалість: milestone це подія, а не робота"
+        }
+      ]
+    },
+    {
       "path": "lr07_wbs/roadmap.csv",
       "work": "ЛР7",
       "title": "Дорожня карта релізів",
@@ -649,25 +885,13 @@
           "type": "text",
           "required": true,
           "description": "Яку цінність дає реліз"
-        },
-        {
-          "name": "story_ids",
-          "type": "id_list",
-          "ref": "lr06_backlog/backlog.csv:story_id",
-          "required": true,
-          "description": "Історії релізу через крапку з комою"
         }
       ],
       "rules": [
         {
           "id": "RM-1",
-          "severity": "error",
-          "text": "Кожен story_id існує в беклозі"
-        },
-        {
-          "id": "RM-2",
-          "severity": "error",
-          "text": "Історія не повторюється у двох релізах"
+          "severity": "warning",
+          "text": "Кожен release_id зустрічається щонайменше в одній історії lr06_backlog/backlog.csv: реліз без історій це дата, а не реліз"
         },
         {
           "id": "RM-3",
@@ -1243,7 +1467,7 @@
     {
       "path": "lr14_metrics/flow.csv",
       "work": "ЛР14",
-      "title": "Потік задач команди, дані з дошки ЛР4",
+      "title": "Потік задач: завершені картки дошки ЛР4 і картки двох реальних спринтів M5",
       "key": "item_id",
       "min_rows": 12,
       "columns": [
@@ -1407,7 +1631,7 @@
     {
       "id": "X-2",
       "severity": "error",
-      "text": "Кожен stakeholder_id у raci.csv і communication.csv існує в stakeholders.csv"
+      "text": "Кожен stakeholder_id у raci.csv, communication.csv і success_criteria.csv існує в stakeholders.csv"
     },
     {
       "id": "X-3",
@@ -1422,7 +1646,7 @@
     {
       "id": "X-5",
       "severity": "warning",
-      "text": "Історії з релізу REL-1 присутні в estimates.csv: план першого релізу оцінений"
+      "text": "Кожна історія з release REL-1 у backlog.csv присутня в estimates.csv: план першого релізу оцінений"
     },
     {
       "id": "X-6",
@@ -1448,14 +1672,34 @@
       "id": "X-10",
       "severity": "error",
       "text": "Критерій main_conflict із lr02_approach/decision.csv має в lr02_approach/approach.csv рядок цього ж кейсу зі значенням pull, протилежним обраному підходу"
+    },
+    {
+      "id": "X-11",
+      "severity": "error",
+      "text": "Кожен wbs_id у lr07_wbs/schedule.csv вказує на листовий вузол lr07_wbs/wbs.csv: календарний план планує роботу, а не заголовок розділу"
+    },
+    {
+      "id": "X-12",
+      "severity": "warning",
+      "text": "Кожен листовий вузол lr07_wbs/wbs.csv зустрічається щонайменше в одній роботі lr07_wbs/schedule.csv: запланована робота без місця в календарі не робиться ніколи"
+    },
+    {
+      "id": "X-13",
+      "severity": "error",
+      "text": "Кожне значення release у lr06_backlog/backlog.csv існує в lr07_wbs/roadmap.csv"
+    },
+    {
+      "id": "X-14",
+      "severity": "warning",
+      "text": "Кожен criterion_id зі lr05_charter/success_criteria.csv згаданий щонайменше в одній історії першого релізу"
     }
   ],
   "markdown_artifacts": [
     {
       "path": "README.md",
       "work": "ЛР1",
-      "title": "Картка команди",
-      "hint": "Назва команди, підгрупа, тема, склад і ролі, посилання на трекер і дошку, версія схеми артефактів."
+      "title": "Картка студента",
+      "hint": "Прізвище і GitHub-логін, підгрупа, тема, номер варіанта вхідних умов, посилання на трекер і дошку, версія схеми артефактів."
     },
     {
       "path": "lr01_case/README.md",
@@ -1488,20 +1732,30 @@
     {
       "path": "lr05_charter/README.md",
       "work": "ЛР5",
-      "title": "Статут проєкту",
-      "hint": "Одна сторінка: мета, обсяг, обмеження, критерії успіху. Карта стейкхолдерів лежить поруч у stakeholders.csv."
+      "title": "Статут проєкту, business case і карта стейкхолдерів",
+      "hint": "Мета, business case з порівнянням варіантів рішення, обсяг з переліком «не робимо», обмеження зі свого варіанта, пояснення критеріїв успіху і матриця інтерес-вплив. Критерії лежать поруч у success_criteria.csv, стейкхолдери у stakeholders.csv.",
+      "skeleton": "tools/skeletons/lr05_charter_README.md"
     },
     {
       "path": "lr06_backlog/README.md",
       "work": "ЛР6",
       "title": "Беклог: пояснення до даних",
-      "hint": "Обраний метод пріоритезації і чому саме він, посилання на трекер, скриншот як ілюстрація."
+      "hint": "Обраний метод пріоритезації і чому саме він, розрахунок пріоритетів, нарізка першого релізу проти строку і ємності вашого варіанта, посилання на трекер.",
+      "skeleton": "tools/skeletons/lr06_backlog_README.md"
+    },
+    {
+      "path": "lr06_backlog/dor.md",
+      "work": "ЛР6",
+      "title": "Definition of Ready",
+      "hint": "За яких умов історію можна брати в спринт: перелік умов, межа розумного і те, що свідомо не вимагається.",
+      "skeleton": "tools/skeletons/lr06_dor.md"
     },
     {
       "path": "lr07_wbs/README.md",
       "work": "ЛР7",
-      "title": "WBS і дорожня карта",
-      "hint": "Як перевіряли правило 100%, що свідомо поза обсягом, логіка нарізки релізів."
+      "title": "WBS, календарний план і дорожня карта",
+      "hint": "Стеля годин зі складу команди варіанта, як перевіряли правило 100%, що свідомо поза обсягом, критичний шлях проти строку варіанта, віхи і логіка нарізки релізів.",
+      "skeleton": "tools/skeletons/lr07_wbs_README.md"
     },
     {
       "path": "lr08_poker/README.md",
@@ -1568,6 +1822,13 @@
       "hint": "Звіт за шаблоном курсу: стан, прогрес, ризики, рішення, яких потребує замовник."
     },
     {
+      "path": "lr15_status_report/change_request.md",
+      "work": "ЛР15",
+      "title": "Запит на зміну",
+      "hint": "Що просить замовник, скільки це коштує в обсязі, строку, бюджеті, якості і ризиках, яке рішення ухвалено: approve, reject або defer.",
+      "skeleton": "tools/skeletons/lr15_change_request.md"
+    },
+    {
       "path": "lr16_budget/README.md",
       "work": "ЛР16",
       "title": "Кошторис і вибір контракту",
@@ -1580,10 +1841,11 @@
       "hint": "Що автоматизували, промпти, і головне: де інструмент помилявся і як це виявили."
     },
     {
-      "path": "lr18_closure/lessons_learned.md",
+      "path": "lr18_closure/closure_report.md",
       "work": "ЛР18",
-      "title": "Lessons learned",
-      "hint": "Що спрацювало, що ні, що робили б інакше. Здається в репозиторій до пари захисту."
+      "title": "Звіт про закриття проєкту",
+      "hint": "Що прийнято, що не завершено, як передається продукт, яка цінність отримана, lessons learned. Здається в репозиторій до пари захисту.",
+      "skeleton": "tools/skeletons/lr18_closure_report.md"
     }
   ]
 }

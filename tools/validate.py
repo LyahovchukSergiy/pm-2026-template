@@ -39,6 +39,7 @@ INT_RE = re.compile(r'^-?\d+$')
 NUMBER_RE = re.compile(r'^-?\d+(\.\d+)?$')
 SOURCE_REF_RE = re.compile(r'\[(SRC-\d{2})\]')
 VERSION_RE = re.compile(r'(\d+\.\d+\.\d+)')
+DIGIT_RE = re.compile(r'\d')
 
 TEAM_OWNER_WORDS = {'команда', 'вся команда', 'всі', 'все', 'усі', 'team', 'all'}
 
@@ -402,6 +403,35 @@ def rule_st_2(table, tables, report, rule):
                    'жоден стейкхолдер не має стратегії manage_closely')
 
 
+def rule_sc_1(table, tables, report, rule):
+    for idx, row in enumerate(table.rows):
+        target = table.cell(row, 'target')
+        if target and not DIGIT_RE.search(target):
+            report.add(rule['severity'], table.path, table.line(idx), rule['id'],
+                       'у target немає числа: «%s»' % target)
+
+
+def rule_sc_2(table, tables, report, rule):
+    for idx, row in enumerate(table.rows):
+        how = table.cell(row, 'measure_how')
+        target = table.cell(row, 'target')
+        if not how:
+            continue
+        if how.strip().lower() == target.strip().lower():
+            report.add(rule['severity'], table.path, table.line(idx), rule['id'],
+                       'measure_how повторює target: спосіб виміру не названий')
+        elif len(how) < 20:
+            report.add(rule['severity'], table.path, table.line(idx), rule['id'],
+                       'measure_how надто короткий («%s»): назвіть джерело даних або момент виміру' % how)
+
+
+def rule_sc_3(table, tables, report, rule):
+    owners = set(v for v in table.col('accepted_by') if v)
+    if len(owners) < 2:
+        report.add(rule['severity'], table.path, 1, rule['id'],
+                   'усі критерії приймає один стейкхолдер (%s)' % (', '.join(owners) or 'ніхто'))
+
+
 def rule_bl_1(table, tables, report, rule):
     ranks = sorted(int(v) for v in table.col('rank') if INT_RE.match(v))
     expected = list(range(1, len(table.rows) + 1))
@@ -416,6 +446,185 @@ def rule_bl_2(table, tables, report, rule):
     if len(methods) > 1:
         report.add(rule['severity'], table.path, 1, rule['id'],
                    'у файлі кілька методів пріоритезації: %s' % ', '.join(sorted(methods)))
+
+
+def _first_release(table):
+    """Рядки історій першого релізу разом із їхніми номерами в файлі."""
+    return [(idx, row) for idx, row in enumerate(table.rows)
+            if table.cell(row, 'release') == 'REL-1']
+
+
+def rule_bl_3(table, tables, report, rule):
+    for idx, row in _first_release(table):
+        if not table.cell(row, 'acceptance_criteria'):
+            report.add(rule['severity'], table.path, table.line(idx), rule['id'],
+                       'історія %s стоїть у першому релізі без критеріїв приймання'
+                       % table.cell(row, 'story_id'))
+
+
+def rule_bl_4(table, tables, report, rule):
+    count = len(_first_release(table))
+    if count < 8:
+        report.add(rule['severity'], table.path, 1, rule['id'],
+                   'у релізі REL-1 %d історій, а потрібно щонайменше 8: '
+                   'реліз меншого обсягу нічим не показати замовнику' % count)
+
+
+def rule_bl_5(table, tables, report, rule):
+    for idx, row in _first_release(table):
+        if not table.cell(row, 'success_criterion'):
+            report.add(rule['severity'], table.path, table.line(idx), rule['id'],
+                       'історія %s стоїть у першому релізі, але не веде до жодного критерію успіху'
+                       % table.cell(row, 'story_id'))
+
+
+PRIORITY_INPUTS = {
+    'rice': ('reach', 'impact', 'confidence', 'effort'),
+    'wsjf': ('business_value', 'time_criticality', 'risk_reduction', 'job_size'),
+}
+
+
+def _parse_inputs(value):
+    parsed = {}
+    for part in [p.strip() for p in value.split(';') if p.strip()]:
+        if '=' not in part:
+            return None
+        name, raw = part.split('=', 1)
+        if not NUMBER_RE.match(raw.strip()):
+            return None
+        parsed[name.strip()] = float(raw.strip())
+    return parsed
+
+
+def rule_bl_6(table, tables, report, rule):
+    methods = set(v for v in table.col('priority_method') if v)
+    method = methods.pop() if len(methods) == 1 else ''
+    if method not in PRIORITY_INPUTS:
+        return
+    needed = PRIORITY_INPUTS[method]
+    for idx, row in enumerate(table.rows):
+        story = table.cell(row, 'story_id')
+        raw = table.cell(row, 'priority_inputs')
+        line = table.line(idx)
+        if not raw:
+            report.add(rule['severity'], table.path, line, rule['id'],
+                       'історія %s: метод %s, а priority_inputs порожній. Потрібні %s'
+                       % (story, method, ', '.join(needed)))
+            continue
+        parsed = _parse_inputs(raw)
+        if parsed is None:
+            report.add(rule['severity'], table.path, line, rule['id'],
+                       'історія %s: priority_inputs пишеться як `ключ=число` через `;`, а зараз «%s»'
+                       % (story, raw))
+            continue
+        missing = [n for n in needed if n not in parsed]
+        if missing:
+            report.add(rule['severity'], table.path, line, rule['id'],
+                       'історія %s: у priority_inputs немає складників %s' % (story, ', '.join(missing)))
+            continue
+        if method == 'rice':
+            divisor = parsed['effort']
+            expected = parsed['reach'] * parsed['impact'] * parsed['confidence'] / divisor if divisor else None
+        else:
+            divisor = parsed['job_size']
+            expected = (parsed['business_value'] + parsed['time_criticality']
+                        + parsed['risk_reduction']) / divisor if divisor else None
+        if expected is None:
+            report.add(rule['severity'], table.path, line, rule['id'],
+                       'історія %s: дільник формули дорівнює нулю' % story)
+            continue
+        score = table.cell(row, 'priority_score')
+        if not NUMBER_RE.match(score):
+            report.add(rule['severity'], table.path, line, rule['id'],
+                       'історія %s: метод %s дає число, а в priority_score стоїть «%s»'
+                       % (story, method, score))
+            continue
+        if abs(float(score) - expected) > 0.1:
+            report.add(rule['severity'], table.path, line, rule['id'],
+                       'історія %s: за складниками формула дає %.2f, а в priority_score стоїть %s'
+                       % (story, expected, score))
+
+
+def rule_bl_7(table, tables, report, rule, enums=None):
+    methods = set(v for v in table.col('priority_method') if v)
+    if methods != {'moscow'}:
+        return
+    allowed = (enums or {}).get('moscow_class', ['must', 'should', 'could', 'wont'])
+    for idx, row in enumerate(table.rows):
+        score = table.cell(row, 'priority_score')
+        if score and score not in allowed:
+            report.add(rule['severity'], table.path, table.line(idx), rule['id'],
+                       'історія %s: клас MoSCoW «%s» поза словником, дозволено: %s'
+                       % (table.cell(row, 'story_id'), score, ', '.join(allowed)))
+
+
+def rule_bl_8(table, tables, report, rule):
+    ranks = [int(table.cell(row, 'rank')) for _, row in _first_release(table)
+             if INT_RE.match(table.cell(row, 'rank'))]
+    if not ranks:
+        return
+    last = max(ranks)
+    for idx, row in enumerate(table.rows):
+        if table.cell(row, 'release'):
+            continue
+        rank = table.cell(row, 'rank')
+        if INT_RE.match(rank) and int(rank) < last:
+            report.add(rule['severity'], table.path, table.line(idx), rule['id'],
+                       'історія %s не входить у жоден реліз, але стоїть у черзі вище (rank %s) '
+                       'за історію першого релізу з rank %d'
+                       % (table.cell(row, 'story_id'), rank, last))
+
+
+def rule_bl_9(table, tables, report, rule):
+    if set(v for v in table.col('priority_method') if v) != {'moscow'}:
+        return
+    rows = _first_release(table)
+    if not rows:
+        return
+    must = sum(1 for _, row in rows if table.cell(row, 'priority_score') == 'must')
+    share = must * 100 // len(rows)
+    if share > 60:
+        report.add(rule['severity'], table.path, 1, rule['id'],
+                   'у першому релізі %d must із %d історій, це %d відсотків. '
+                   'Коли строк почне тиснути, різати буде нічого'
+                   % (must, len(rows), share))
+
+
+def rule_bl_10(table, tables, report, rule):
+    epics = set(v for v in table.col('epic') if v)
+    if len(epics) < 3:
+        report.add(rule['severity'], table.path, 1, rule['id'],
+                   'у беклозі %d епіків: %s. Беклог на 15 історій без трьох великих частин '
+                   'зазвичай означає один епік, названий трьома словами'
+                   % (len(epics), ', '.join(sorted(epics)) or 'жодного'))
+
+
+def rule_bl_11(table, tables, report, rule):
+    estimates = tables.get('lr08_poker/estimates.csv')
+    if not filled(estimates):
+        report.add(SKIPPED, table.path, 1, rule['id'], 'немає заповненого estimates.csv, звірка розміру історій відкладена')
+        return
+    sized = {estimates.cell(row, 'story_id'): estimates.cell(row, 'final_estimate')
+             for row in estimates.rows}
+    for idx, row in _first_release(table):
+        story = table.cell(row, 'story_id')
+        if sized.get(story) == '21':
+            report.add(rule['severity'], table.path, table.line(idx), rule['id'],
+                       'історія %s оцінена в 21 point: у спринт вона не вміщується, її треба різати'
+                       % story)
+
+
+def rule_rm_1(table, tables, report, rule):
+    backlog = tables.get('lr06_backlog/backlog.csv')
+    if not filled(backlog):
+        report.add(SKIPPED, table.path, 1, rule['id'], 'немає заповненого backlog.csv, склад релізів не перевірений')
+        return
+    planned = set(v for v in backlog.col('release') if v)
+    for idx, row in enumerate(table.rows):
+        release = table.cell(row, 'release_id')
+        if release and release not in planned:
+            report.add(rule['severity'], table.path, table.line(idx), rule['id'],
+                       'у реліз %s не запланована жодна історія беклогу' % release)
 
 
 def rule_wbs_1(table, tables, report, rule):
@@ -464,15 +673,136 @@ def rule_wbs_3(table, tables, report, rule):
                        % (wbs_id, hours.get(wbs_id, 0.0), total))
 
 
-def rule_rm_2(table, tables, report, rule):
-    seen = {}
+# ------------------------------------------------------- календарний план ЛР7
+
+def _schedule_graph(table):
+    """Читає schedule.csv у структуру для розрахунку критичного шляху."""
+    tasks = {}
+    order = []
     for idx, row in enumerate(table.rows):
-        for story in [p.strip() for p in table.cell(row, 'story_ids').split(';') if p.strip()]:
-            if story in seen:
-                report.add(rule['severity'], table.path, table.line(idx), rule['id'],
-                           'історія `%s` уже стоїть у релізі рядка %d' % (story, seen[story]))
-            else:
-                seen[story] = table.line(idx)
+        task_id = table.cell(row, 'task_id')
+        if not task_id:
+            continue
+        preds = [p.strip() for p in table.cell(row, 'predecessors').split(';') if p.strip()]
+        tasks[task_id] = {
+            'line': table.line(idx),
+            'duration': int(num(table.cell(row, 'duration_days'))),
+            'preds': preds,
+        }
+        order.append(task_id)
+    return tasks, order
+
+
+def _topological(tasks, order):
+    """Порядок обходу графа. Повертає None, якщо в залежностях є цикл."""
+    state = {}
+    result = []
+
+    def visit(node, stack):
+        if state.get(node) == 'done':
+            return True
+        if node in stack:
+            return False
+        stack.add(node)
+        for pred in tasks[node]['preds']:
+            if pred not in tasks:
+                continue
+            if not visit(pred, stack):
+                return False
+        stack.discard(node)
+        state[node] = 'done'
+        result.append(node)
+        return True
+
+    for node in order:
+        if not visit(node, set()):
+            return None
+    return result
+
+
+def _critical_path(tasks, order):
+    """Прямий і зворотний проходи CPM. Повертає резерв кожної роботи в днях."""
+    seq = _topological(tasks, order)
+    if seq is None:
+        return None
+    early_start, early_finish = {}, {}
+    for node in seq:
+        preds = [p for p in tasks[node]['preds'] if p in tasks]
+        early_start[node] = max([early_finish[p] for p in preds], default=0)
+        early_finish[node] = early_start[node] + tasks[node]['duration']
+    finish = max(early_finish.values(), default=0)
+    successors = {node: [] for node in tasks}
+    for node in tasks:
+        for pred in tasks[node]['preds']:
+            if pred in successors:
+                successors[pred].append(node)
+    late_start, late_finish = {}, {}
+    for node in reversed(seq):
+        nexts = successors[node]
+        late_finish[node] = min([late_start[n] for n in nexts], default=finish)
+        late_start[node] = late_finish[node] - tasks[node]['duration']
+    return dict((node, late_start[node] - early_start[node]) for node in tasks)
+
+
+def rule_sch_1(table, tables, report, rule):
+    tasks, order = _schedule_graph(table)
+    if _topological(tasks, order) is None:
+        report.add(rule['severity'], table.path, 1, rule['id'],
+                   'у залежностях є цикл: робота через ланцюг попередників чекає сама на себе, '
+                   'критичний шлях у такому графі не рахується')
+
+
+def rule_sch_2(table, tables, report, rule):
+    tasks, order = _schedule_graph(table)
+    floats = _critical_path(tasks, order)
+    if floats is None:
+        return
+    for idx, row in enumerate(table.rows):
+        task_id = table.cell(row, 'task_id')
+        if task_id not in floats:
+            continue
+        declared = table.cell(row, 'float_days')
+        if not INT_RE.match(declared):
+            continue
+        if int(declared) != floats[task_id]:
+            report.add(rule['severity'], table.path, table.line(idx), rule['id'],
+                       'робота %s: у файлі резерв %s днів, а за тривалостями і залежностями %d'
+                       % (task_id, declared, floats[task_id]))
+
+
+def rule_sch_3(table, tables, report, rule):
+    tasks, order = _schedule_graph(table)
+    floats = _critical_path(tasks, order)
+    if floats is None:
+        return
+    for idx, row in enumerate(table.rows):
+        task_id = table.cell(row, 'task_id')
+        if task_id not in floats:
+            continue
+        marked = table.cell(row, 'is_critical') == 'yes'
+        critical = floats[task_id] == 0
+        if marked != critical:
+            report.add(rule['severity'], table.path, table.line(idx), rule['id'],
+                       'робота %s: is_critical=%s, а резерв %d днів'
+                       % (task_id, table.cell(row, 'is_critical'), floats[task_id]))
+
+
+def rule_sch_4(table, tables, report, rule):
+    count = sum(1 for row in table.rows if table.cell(row, 'milestone') == 'yes')
+    if count < 2:
+        report.add(rule['severity'], table.path, 1, rule['id'],
+                   'віх у плані %d: контрольних точок замало, щоб побачити зрив строку вчасно' % count)
+
+
+def rule_sch_5(table, tables, report, rule):
+    for idx, row in enumerate(table.rows):
+        if table.cell(row, 'milestone') != 'yes':
+            continue
+        if num(table.cell(row, 'duration_days')) != 0:
+            report.add(rule['severity'], table.path, table.line(idx), rule['id'],
+                       'віха %s має тривалість %s: віха це подія нульової тривалості, '
+                       'роботу перед нею винесіть окремим рядком'
+                       % (table.cell(row, 'task_id'), table.cell(row, 'duration_days')))
 
 
 def rule_rm_3(table, tables, report, rule):
@@ -767,9 +1097,14 @@ FILE_RULES = {
     'AP-1': rule_ap_1, 'AP-2': rule_ap_2, 'AP-3': rule_ap_3, 'AP-4': rule_ap_4, 'AP-5': rule_ap_5,
     'DC-1': rule_dc_1, 'DC-2': rule_dc_2, 'DC-3': rule_dc_3,
     'ST-1': rule_st_1, 'ST-2': rule_st_2,
-    'BL-1': rule_bl_1, 'BL-2': rule_bl_2,
+    'SC-1': rule_sc_1, 'SC-2': rule_sc_2, 'SC-3': rule_sc_3,
+    'BL-1': rule_bl_1, 'BL-2': rule_bl_2, 'BL-3': rule_bl_3, 'BL-4': rule_bl_4,
+    'BL-5': rule_bl_5, 'BL-6': rule_bl_6, 'BL-7': rule_bl_7, 'BL-8': rule_bl_8,
+    'BL-9': rule_bl_9, 'BL-10': rule_bl_10, 'BL-11': rule_bl_11,
     'WBS-1': rule_wbs_1, 'WBS-2': rule_wbs_2, 'WBS-3': rule_wbs_3,
-    'RM-2': rule_rm_2, 'RM-3': rule_rm_3,
+    'SCH-1': rule_sch_1, 'SCH-2': rule_sch_2, 'SCH-3': rule_sch_3,
+    'SCH-4': rule_sch_4, 'SCH-5': rule_sch_5,
+    'RM-1': rule_rm_1, 'RM-3': rule_rm_3,
     'PK-1': rule_pk_1, 'PK-3': rule_pk_3,
     'ES-1': rule_es_1, 'ES-2': rule_es_2, 'ES-3': rule_es_3,
     'VL-1': rule_vl_1, 'VL-2': rule_vl_2,
@@ -783,10 +1118,17 @@ FILE_RULES = {
 }
 
 # Правила, які покриті перевіркою посилань або іншим правилом.
-COVERED_BY_REFS = {'RM-1', 'PK-2'}
+COVERED_BY_REFS = {'PK-2'}
 
 
 # ------------------------------------------------------------ наскрізні правила
+
+def filled(table):
+    """Таблиця існує і має рядки. Порожній файл із самим заголовком означає
+    «роботу ще не починали», і наскрізні правила на нього не спрацьовують:
+    інакше здача ЛР6 ламалась би об порожній roadmap.csv із шаблону."""
+    return table is not None and bool(table.rows)
+
 
 def read_text(root, rel_path):
     full = os.path.join(root, rel_path)
@@ -799,7 +1141,7 @@ def read_text(root, rel_path):
 def cross_x4(root, tables, report, rule):
     budget = tables.get('lr16_budget/budget.csv')
     wbs = tables.get('lr07_wbs/wbs.csv')
-    if budget is None or wbs is None:
+    if not filled(budget) or not filled(wbs):
         return
     labor = sum(num(budget.cell(row, 'hours')) for row in budget.rows
                 if budget.cell(row, 'category') == 'labor')
@@ -813,18 +1155,18 @@ def cross_x4(root, tables, report, rule):
 
 
 def cross_x5(root, tables, report, rule):
-    roadmap = tables.get('lr07_wbs/roadmap.csv')
+    backlog = tables.get('lr06_backlog/backlog.csv')
     estimates = tables.get('lr08_poker/estimates.csv')
-    if roadmap is None or estimates is None:
+    if not filled(backlog) or not filled(estimates):
         return
     estimated = set(v for v in estimates.col('story_id') if v)
-    for idx, row in enumerate(roadmap.rows):
-        if roadmap.cell(row, 'release_id') != 'REL-1':
+    for idx, row in enumerate(backlog.rows):
+        if backlog.cell(row, 'release') != 'REL-1':
             continue
-        for story in [p.strip() for p in roadmap.cell(row, 'story_ids').split(';') if p.strip()]:
-            if story not in estimated:
-                report.add(rule['severity'], 'lr07_wbs/roadmap.csv', roadmap.line(idx), rule['id'],
-                           'історія %s із першого релізу не оцінена в estimates.csv' % story)
+        story = backlog.cell(row, 'story_id')
+        if story not in estimated:
+            report.add(rule['severity'], 'lr06_backlog/backlog.csv', backlog.line(idx), rule['id'],
+                       'історія %s із першого релізу не оцінена в estimates.csv' % story)
 
 
 def cross_x6(root, tables, report, rule, spec_version=''):
@@ -920,19 +1262,84 @@ def cross_x10(root, tables, report, rule):
                        % (case, chosen, conflict, pull, want))
 
 
+def cross_x11(root, tables, report, rule):
+    schedule = tables.get('lr07_wbs/schedule.csv')
+    wbs = tables.get('lr07_wbs/wbs.csv')
+    if not filled(schedule) or not filled(wbs):
+        return
+    parents = set(v for v in wbs.col('parent_id') if v)
+    for idx, row in enumerate(schedule.rows):
+        wbs_id = schedule.cell(row, 'wbs_id')
+        if wbs_id and wbs_id in parents:
+            report.add(rule['severity'], 'lr07_wbs/schedule.csv', schedule.line(idx), rule['id'],
+                       'робота %s посилається на вузол %s, у якого є діти: плануйте листові пакети робіт'
+                       % (schedule.cell(row, 'task_id'), wbs_id))
+
+
+def cross_x12(root, tables, report, rule):
+    schedule = tables.get('lr07_wbs/schedule.csv')
+    wbs = tables.get('lr07_wbs/wbs.csv')
+    if schedule is None or wbs is None:
+        return
+    parents = set(v for v in wbs.col('parent_id') if v)
+    planned = set(v for v in schedule.col('wbs_id') if v)
+    for idx, row in enumerate(wbs.rows):
+        wbs_id = wbs.cell(row, 'wbs_id')
+        if not wbs_id or wbs_id in parents:
+            continue
+        if wbs_id not in planned:
+            report.add(rule['severity'], 'lr07_wbs/wbs.csv', wbs.line(idx), rule['id'],
+                       'пакет %s не має жодної роботи в календарному плані' % wbs_id)
+
+
+def cross_x13(root, tables, report, rule):
+    backlog = tables.get('lr06_backlog/backlog.csv')
+    roadmap = tables.get('lr07_wbs/roadmap.csv')
+    if not filled(backlog) or not filled(roadmap):
+        return
+    known = set(v for v in roadmap.col('release_id') if v)
+    for idx, row in enumerate(backlog.rows):
+        release = backlog.cell(row, 'release')
+        if release and release not in known:
+            report.add(rule['severity'], 'lr06_backlog/backlog.csv', backlog.line(idx), rule['id'],
+                       'історія %s запланована в реліз %s, якого немає в roadmap.csv'
+                       % (backlog.cell(row, 'story_id'), release))
+
+
+def cross_x14(root, tables, report, rule):
+    backlog = tables.get('lr06_backlog/backlog.csv')
+    criteria = tables.get('lr05_charter/success_criteria.csv')
+    if not filled(backlog) or not filled(criteria):
+        return
+    served = set(backlog.cell(row, 'success_criterion') for row in backlog.rows
+                 if backlog.cell(row, 'release') == 'REL-1')
+    for idx, row in enumerate(criteria.rows):
+        key = criteria.cell(row, 'criterion_id')
+        if key and key not in served:
+            report.add(rule['severity'], 'lr05_charter/success_criteria.csv', criteria.line(idx), rule['id'],
+                       'критерій %s не має жодної історії першого релізу: '
+                       'його нічим буде виконати до релізу' % key)
+
+
 CROSS_RULES = {'X-4': cross_x4, 'X-5': cross_x5, 'X-6': cross_x6, 'X-7': cross_x7, 'X-8': cross_x8,
-               'X-9': cross_x9, 'X-10': cross_x10}
+               'X-9': cross_x9, 'X-10': cross_x10,
+               'X-11': cross_x11, 'X-12': cross_x12,
+               'X-13': cross_x13, 'X-14': cross_x14}
 # X-1 і X-2 покриті перевіркою посилань колонок, X-3 порахований правилом FC-2.
 CROSS_COVERED = {'X-1', 'X-2', 'X-3'}
 
 CROSS_SCOPE = {
     'X-4': ('lr16_budget', 'lr07_wbs'),
-    'X-5': ('lr07_wbs', 'lr08_poker'),
+    'X-5': ('lr06_backlog', 'lr08_poker'),
     'X-6': ('README.md',),
     'X-7': ('lr01_case',),
     'X-8': ('lr01_case',),
     'X-9': ('lr02_approach',),
     'X-10': ('lr02_approach',),
+    'X-11': ('lr07_wbs',),
+    'X-12': ('lr07_wbs',),
+    'X-13': ('lr06_backlog', 'lr07_wbs'),
+    'X-14': ('lr05_charter', 'lr06_backlog'),
 }
 
 

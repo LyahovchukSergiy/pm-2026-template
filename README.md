@@ -1,7 +1,7 @@
 # Портфель проєкту
 
 Стартовий шаблон репозиторію курсу «Управління ІТ проєктами», 2026.
-Версія схеми артефактів: **1.4.0** (звіряється з `tools/SCHEMAS.md` курсу).
+Версія схеми артефактів: **1.7.1** (звіряється з `tools/SCHEMAS.md` курсу).
 
 ## Картка студента
 
@@ -13,6 +13,7 @@
 | GitHub-логін | |
 | Підгрупа | КН-41 або КН-42 |
 | Тема проєкту | |
+| Варіант вхідних умов | номер із таблиці варіантів курсу |
 | Трекер | посилання |
 | Дошка | посилання |
 | Валюта проєкту | для кошторису ЛР16 |
@@ -28,22 +29,22 @@
 ```
 lr01_case/               розтин провалу реального проєкту
 lr02_approach/           approach.csv + decision.csv, вибір підходу для трьох проєктів
-lr03_sprint_simulation/  журнали спринтів ЛР3, по одному на людину
+lr03_sprint_simulation/  журнал спринта ЛР3
 lr04_kanban/             ваша дошка: DoW, WIP-ліміти, дати карток для ЛР14
-lr05_charter/            статут + stakeholders.csv
-lr06_backlog/            backlog.csv
-lr07_wbs/                wbs.csv + roadmap.csv
+lr05_charter/            статут + success_criteria.csv + stakeholders.csv
+lr06_backlog/            backlog.csv + dor.md, беклог і Definition of Ready
+lr07_wbs/                wbs.csv + schedule.csv + roadmap.csv
 lr08_poker/              votes.csv + estimates.csv, оцінки беклогу
 lr09_forecast/           velocity.csv + forecast.csv
 lr10_demo/               review.md на чужий портфель + README.md з реакцією
 lr11_risks_quality/      risks.csv + techdebt.csv + dod.md
 lr12_communication/      raci.csv + communication.csv
-lr13_roleplay/           діалоги зі стейкхолдерами, по одному на людину
+lr13_roleplay/           діалоги зі стейкхолдерами
 lr14_metrics/            flow.csv + аналіз
-lr15_status_report/      статус-звіт
+lr15_status_report/      статус-звіт + change_request.md
 lr16_budget/             budget.csv
 lr17_ai_assistant/       автоматизація і розбір помилок інструмента
-lr18_closure/            lessons_learned.md до пари захисту
+lr18_closure/            closure_report.md до пари захисту
 ```
 
 Здається все, порожніх папок у шаблоні немає. Бали ставляться не за окремі

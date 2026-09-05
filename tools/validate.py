@@ -184,6 +184,11 @@ def check_value(table, line, name, col, value, enums, report):
         if any(not p for p in parts):
             report.add(ERROR, table.path, line, 'list',
                        'колонка `%s`: список через `;` містить порожній елемент' % name)
+        min_items = col.get('min_items', 1)
+        if len(parts) < min_items:
+            report.add(ERROR, table.path, line, 'min_items',
+                       'колонка `%s`: елементів %d, а за спекою потрібно щонайменше %d, '
+                       'розділювач це крапка з комою' % (name, len(parts), min_items))
         if kind == 'id_list' and col.get('pattern'):
             for p in parts:
                 if p and not re.match(col['pattern'], p):
@@ -507,9 +512,11 @@ def rule_bl_6(table, tables, report, rule):
         raw = table.cell(row, 'priority_inputs')
         line = table.line(idx)
         if not raw:
-            report.add(rule['severity'], table.path, line, rule['id'],
-                       'історія %s: метод %s, а priority_inputs порожній. Потрібні %s'
-                       % (story, method, ', '.join(needed)))
+            if table.cell(row, 'release') == 'REL-1':
+                report.add(rule['severity'], table.path, line, rule['id'],
+                           'історія %s стоїть у першому релізі з методом %s, '
+                           'а priority_inputs порожній. Потрібні %s'
+                           % (story, method, ', '.join(needed)))
             continue
         parsed = _parse_inputs(raw)
         if parsed is None:
@@ -556,6 +563,11 @@ def rule_bl_7(table, tables, report, rule, enums=None):
             report.add(rule['severity'], table.path, table.line(idx), rule['id'],
                        'історія %s: клас MoSCoW «%s» поза словником, дозволено: %s'
                        % (table.cell(row, 'story_id'), score, ', '.join(allowed)))
+        elif score == 'wont' and table.cell(row, 'release') == 'REL-1':
+            report.add(rule['severity'], table.path, table.line(idx), rule['id'],
+                       'історія %s має клас wont і водночас стоїть у першому релізі: '
+                       'wont означає «не в цьому релізі»'
+                       % table.cell(row, 'story_id'))
 
 
 def rule_bl_8(table, tables, report, rule):
@@ -565,14 +577,15 @@ def rule_bl_8(table, tables, report, rule):
         return
     last = max(ranks)
     for idx, row in enumerate(table.rows):
-        if table.cell(row, 'release'):
+        release = table.cell(row, 'release')
+        if release == 'REL-1':
             continue
         rank = table.cell(row, 'rank')
         if INT_RE.match(rank) and int(rank) < last:
             report.add(rule['severity'], table.path, table.line(idx), rule['id'],
-                       'історія %s не входить у жоден реліз, але стоїть у черзі вище (rank %s) '
-                       'за історію першого релізу з rank %d'
-                       % (table.cell(row, 'story_id'), rank, last))
+                       'історія %s (%s) стоїть у черзі вище (rank %s) за історію першого релізу '
+                       'з rank %d, хоча в перший реліз не входить'
+                       % (table.cell(row, 'story_id'), release or 'без релізу', rank, last))
 
 
 def rule_bl_9(table, tables, report, rule):
@@ -817,6 +830,78 @@ def rule_rm_3(table, tables, report, rule):
                        'реліз %s датований раніше за попередній %s' % (cur[0], prev[0]))
 
 
+POINT_SCALE = [0, 1, 2, 3, 5, 8, 13, 21]
+THREE_POINT_VOTERS = ('optimistic', 'likely', 'pessimistic')
+
+
+def vote_rounds(votes):
+    """Голоси ЛР8 у вигляді {історія: {раунд: {голосуючий: картка}}}."""
+    grouped = {}
+    for row in votes.rows:
+        story = votes.cell(row, 'story_id')
+        rnd = votes.cell(row, 'round')
+        if not story or not INT_RE.match(rnd):
+            continue
+        voter = votes.cell(row, 'voter').strip().lower()
+        grouped.setdefault(story, {}).setdefault(int(rnd), {})[voter] = votes.cell(row, 'vote').strip()
+    return grouped
+
+
+def pert_value(round_votes):
+    """PERT за трьома картками раунду. None, якщо хоч одна не число."""
+    numbers = []
+    for name in THREE_POINT_VOTERS:
+        value = round_votes.get(name, '')
+        if not INT_RE.match(value):
+            return None
+        numbers.append(int(value))
+    return (numbers[0] + 4 * numbers[1] + numbers[2]) / 6.0
+
+
+def nearest_cards(value):
+    """Картки шкали, найближчі до числа. Дві, якщо число рівно посередині."""
+    distances = [round(abs(card - value), 6) for card in POINT_SCALE]
+    best = min(distances)
+    return [card for card, distance in zip(POINT_SCALE, distances) if distance == best]
+
+
+def scale_index(value):
+    if INT_RE.match(value) and int(value) in POINT_SCALE:
+        return POINT_SCALE.index(int(value))
+    return None
+
+
+def rule_pk_4(table, tables, report, rule):
+    for story, rounds in sorted(vote_rounds(table).items()):
+        for number, votes in sorted(rounds.items()):
+            names = set(votes)
+            if not names & set(THREE_POINT_VOTERS):
+                continue
+            if names != set(THREE_POINT_VOTERS):
+                report.add(rule['severity'], table.path, 1, rule['id'],
+                           'історія %s, раунд %d: у триточковому раунді рівно три голоси, '
+                           'optimistic, likely і pessimistic, а тут %s'
+                           % (story, number, ', '.join(sorted(names))))
+                continue
+            order = [scale_index(votes[name]) for name in THREE_POINT_VOTERS]
+            if None in order:
+                continue
+            if not order[0] <= order[1] <= order[2]:
+                report.add(rule['severity'], table.path, 1, rule['id'],
+                           'історія %s, раунд %d: оптимістична %s, найімовірніша %s, песимістична %s, '
+                           'а має бути від меншого до більшого'
+                           % (story, number, votes['optimistic'], votes['likely'], votes['pessimistic']))
+
+
+def rule_pk_5(table, tables, report, rule):
+    for story, rounds in sorted(vote_rounds(table).items()):
+        last = max(rounds)
+        if '?' in rounds[last].values():
+            report.add(rule['severity'], table.path, 1, rule['id'],
+                       'історія %s: в останньому раунді %d стоїть картка ?, '
+                       'підсумкову оцінку нема з чого рахувати' % (story, last))
+
+
 def rule_pk_1(table, tables, report, rule):
     seen = {}
     for idx, row in enumerate(table.rows):
@@ -877,6 +962,67 @@ def rule_es_3(table, tables, report, rule):
         if story not in estimated:
             report.add(rule['severity'], table.path, 1, rule['id'],
                        'історія %s голосувалася, але рядка в estimates.csv не має' % story)
+
+
+def rule_es_4(table, tables, report, rule):
+    votes = tables.get('lr08_poker/votes.csv')
+    if votes is None:
+        report.add(SKIPPED, table.path, 1, rule['id'], 'немає votes.csv, звірка формули відкладена')
+        return
+    grouped = vote_rounds(votes)
+    for idx, row in enumerate(table.rows):
+        story = table.cell(row, 'story_id')
+        rounds = grouped.get(story)
+        if not rounds:
+            continue
+        last = rounds[max(rounds)]
+        if set(last) != set(THREE_POINT_VOTERS):
+            continue
+        value = pert_value(last)
+        final = table.cell(row, 'final_estimate')
+        if value is None or scale_index(final) is None:
+            continue
+        cards = nearest_cards(value)
+        if int(final) not in cards:
+            report.add(rule['severity'], table.path, table.line(idx), rule['id'],
+                       'для %s PERT дає %.2f, найближча картка %s, а у файлі %s'
+                       % (story, value, ' або '.join(str(c) for c in cards), final))
+
+
+def rule_es_5(table, tables, report, rule):
+    votes = tables.get('lr08_poker/votes.csv')
+    if votes is None:
+        report.add(SKIPPED, table.path, 1, rule['id'], 'немає votes.csv, звірка голосів відкладена')
+        return
+    voted = set(v for v in votes.col('story_id') if v)
+    for idx, row in enumerate(table.rows):
+        story = table.cell(row, 'story_id')
+        if story and story not in voted:
+            report.add(rule['severity'], table.path, table.line(idx), rule['id'],
+                       'історія %s має підсумкову оцінку, але в votes.csv за неї ніхто не голосував' % story)
+
+
+def rule_es_6(table, tables, report, rule):
+    votes = tables.get('lr08_poker/votes.csv')
+    if votes is None:
+        report.add(SKIPPED, table.path, 1, rule['id'], 'немає votes.csv, звірка розкиду відкладена')
+        return
+    grouped = vote_rounds(votes)
+    for idx, row in enumerate(table.rows):
+        story = table.cell(row, 'story_id')
+        rounds = grouped.get(story)
+        if not rounds:
+            continue
+        last = rounds[max(rounds)]
+        order = [scale_index(v) for v in last.values()]
+        order = [v for v in order if v is not None]
+        if len(order) < 2 or max(order) - min(order) <= 2:
+            continue
+        if not table.cell(row, 'spread_note').strip():
+            report.add(rule['severity'], table.path, table.line(idx), rule['id'],
+                       'для %s крайні голоси %s і %s різняться більш ніж на дві картки шкали, '
+                       'а spread_note порожній'
+                       % (story, POINT_SCALE[min(order)], POINT_SCALE[max(order)]))
 
 
 def rule_vl_1(table, tables, report, rule):
@@ -1105,8 +1251,9 @@ FILE_RULES = {
     'SCH-1': rule_sch_1, 'SCH-2': rule_sch_2, 'SCH-3': rule_sch_3,
     'SCH-4': rule_sch_4, 'SCH-5': rule_sch_5,
     'RM-1': rule_rm_1, 'RM-3': rule_rm_3,
-    'PK-1': rule_pk_1, 'PK-3': rule_pk_3,
+    'PK-1': rule_pk_1, 'PK-3': rule_pk_3, 'PK-4': rule_pk_4, 'PK-5': rule_pk_5,
     'ES-1': rule_es_1, 'ES-2': rule_es_2, 'ES-3': rule_es_3,
+    'ES-4': rule_es_4, 'ES-5': rule_es_5, 'ES-6': rule_es_6,
     'VL-1': rule_vl_1, 'VL-2': rule_vl_2,
     'FC-1': rule_fc_1, 'FC-2': rule_fc_2,
     'RK-1': rule_rk_1, 'RK-2': rule_rk_2, 'RK-3': rule_rk_3,
@@ -1176,10 +1323,10 @@ def cross_x6(root, tables, report, rule, spec_version=''):
     found = VERSION_RE.findall(text)
     if not found:
         report.add(rule['severity'], 'README.md', 1, rule['id'],
-                   'у картці команди немає версії схеми артефактів, очікується %s' % spec_version)
+                   'у картці студента немає версії схеми артефактів, очікується %s' % spec_version)
     elif spec_version not in found:
         report.add(rule['severity'], 'README.md', 1, rule['id'],
-                   'у картці команди версія схеми %s, а спека курсу має версію %s'
+                   'у картці студента версія схеми %s, а спека курсу має версію %s'
                    % (', '.join(found), spec_version))
 
 

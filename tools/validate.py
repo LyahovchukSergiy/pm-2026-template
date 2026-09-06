@@ -1041,6 +1041,35 @@ def rule_vl_2(table, tables, report, rule):
                    'номери спринтів мають іти підряд, а зараз %s' % sprints)
 
 
+def rule_vl_3(table, tables, report, rule):
+    spans = []
+    for idx, row in enumerate(table.rows):
+        sprint = table.cell(row, 'sprint')
+        start = parse_date(table.cell(row, 'start_date'))
+        end = parse_date(table.cell(row, 'end_date'))
+        if start and end and INT_RE.match(sprint):
+            spans.append((int(sprint), start, end, idx))
+    spans.sort()
+    for prev, cur in zip(spans, spans[1:]):
+        if cur[1] < prev[2]:
+            report.add(rule['severity'], table.path, table.line(cur[3]), rule['id'],
+                       'спринт %d починається %s, а спринт %d ще триває до %s'
+                       % (cur[0], cur[1], prev[0], prev[2]))
+
+
+def rule_vl_4(table, tables, report, rule):
+    for idx, row in enumerate(table.rows):
+        start = parse_date(table.cell(row, 'start_date'))
+        end = parse_date(table.cell(row, 'end_date'))
+        if not (start and end):
+            continue
+        days = (end - start).days
+        if days < 7 or days > 21:
+            report.add(rule['severity'], table.path, table.line(idx), rule['id'],
+                       'спринт %s: тривалість %d дн., а має бути від 7 до 21'
+                       % (table.cell(row, 'sprint'), days))
+
+
 def rule_fc_1(table, tables, report, rule):
     for idx, row in enumerate(table.rows):
         p50 = num(table.cell(row, 'p50_sprints'), None)
@@ -1053,6 +1082,22 @@ def rule_fc_1(table, tables, report, rule):
         if d50 and d85 and d85 < d50:
             report.add(rule['severity'], table.path, table.line(idx), rule['id'],
                        'p85_date %s раніша за p50_date %s' % (d85, d50))
+
+
+def rule_fc_3(table, tables, report, rule):
+    for idx, row in enumerate(table.rows):
+        p50 = num(table.cell(row, 'p50_sprints'), None)
+        p85 = num(table.cell(row, 'p85_sprints'), None)
+        d50 = parse_date(table.cell(row, 'p50_date'))
+        d85 = parse_date(table.cell(row, 'p85_date'))
+        if p50 is None or p85 is None or not (d50 and d85):
+            continue
+        expected = (p85 - p50) * 14
+        actual = (d85 - d50).days
+        if abs(actual - expected) > 1:
+            report.add(rule['severity'], table.path, table.line(idx), rule['id'],
+                       'між p50_date і p85_date %d дн., а різниця p85_sprints і p50_sprints це %g, тобто %.0f дн.'
+                       % (actual, p85 - p50, expected))
 
 
 def rule_fc_2(table, tables, report, rule):
@@ -1254,8 +1299,8 @@ FILE_RULES = {
     'PK-1': rule_pk_1, 'PK-3': rule_pk_3, 'PK-4': rule_pk_4, 'PK-5': rule_pk_5,
     'ES-1': rule_es_1, 'ES-2': rule_es_2, 'ES-3': rule_es_3,
     'ES-4': rule_es_4, 'ES-5': rule_es_5, 'ES-6': rule_es_6,
-    'VL-1': rule_vl_1, 'VL-2': rule_vl_2,
-    'FC-1': rule_fc_1, 'FC-2': rule_fc_2,
+    'VL-1': rule_vl_1, 'VL-2': rule_vl_2, 'VL-3': rule_vl_3, 'VL-4': rule_vl_4,
+    'FC-1': rule_fc_1, 'FC-2': rule_fc_2, 'FC-3': rule_fc_3,
     'RK-1': rule_rk_1, 'RK-2': rule_rk_2, 'RK-3': rule_rk_3,
     'TD-1': rule_td_1,
     'RC-1': rule_rc_1, 'RC-2': rule_rc_2, 'RC-3': rule_rc_3, 'RC-4': rule_rc_4, 'RC-5': rule_rc_5,

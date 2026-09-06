@@ -1,5 +1,5 @@
 {
-  "schema_version": "1.9.1",
+  "schema_version": "1.10.0",
   "updated": "2026-09-06",
   "course": "Управління ІТ проєктами, 2026",
   "note": "Джерело правди для схем артефактів. Валідатор, умови робіт і шаблон репозиторію студента беруть колонки звідси. Правити тільки тут, далі перегенерувати SCHEMAS.md і шаблони.",
@@ -24,6 +24,7 @@
       "flow_item_id": "F-001",
       "risk_id": "R-01",
       "debt_id": "D-01",
+      "change_id": "CH-01",
       "activity_id": "A-01",
       "communication_id": "C-01",
       "budget_line_id": "B-01",
@@ -114,6 +115,11 @@
       "inadvertent_prudent",
       "inadvertent_reckless"
     ],
+    "debt_decision": [
+      "pay_now",
+      "pay_later",
+      "accept"
+    ],
     "debt_impact": [
       "low",
       "medium",
@@ -180,6 +186,17 @@
     "yes_no": [
       "yes",
       "no"
+    ],
+    "change_source": [
+      "course_event",
+      "customer",
+      "own_decision",
+      "external"
+    ],
+    "change_decision": [
+      "accepted",
+      "rejected",
+      "deferred"
     ]
   },
   "files": [
@@ -1265,6 +1282,24 @@
           "description": "Стан ризику"
         },
         {
+          "name": "review_date",
+          "type": "date",
+          "required": true,
+          "description": "Дата останнього перегляду цього рядка"
+        },
+        {
+          "name": "previous_score",
+          "type": "int",
+          "required": false,
+          "description": "Попередній score, якщо на перегляді оцінка змінилась. Порожньо, якщо не змінювалась"
+        },
+        {
+          "name": "review_note",
+          "type": "text",
+          "required": false,
+          "description": "Що змінилось на перегляді і чому. Обов'язкове, якщо заповнений previous_score"
+        },
+        {
           "name": "related_story_ids",
           "type": "id_list",
           "ref": "lr06_backlog/backlog.csv:story_id",
@@ -1292,6 +1327,16 @@
           "id": "RK-4",
           "severity": "warning",
           "text": "Для score від 15 і вище план реагування описаний кроками, а не одним словом"
+        },
+        {
+          "id": "RK-5",
+          "severity": "error",
+          "text": "Якщо заповнений previous_score, він відрізняється від score, а review_note не порожній"
+        },
+        {
+          "id": "RK-6",
+          "severity": "warning",
+          "text": "Щонайменше два ризики мають заповнений previous_score: реєстр, у якому після спринта не змінилось нічого, найчастіше не переглядали"
         }
       ]
     },
@@ -1350,6 +1395,13 @@
           "description": "Оцінка вартості повернення боргу"
         },
         {
+          "name": "decision",
+          "type": "enum",
+          "enum": "debt_decision",
+          "required": true,
+          "description": "Рішення по пункту: pay_now гасимо зараз, pay_later гасимо пізніше за планом, accept свідомо не гасимо"
+        },
+        {
           "name": "plan",
           "type": "text",
           "required": true,
@@ -1364,9 +1416,8 @@
         {
           "name": "due_sprint",
           "type": "int",
-          "required": true,
-          "min": 1,
-          "description": "Спринт, до якого запланована робота"
+          "required": false,
+          "description": "Спринт, до якого запланована робота. Порожньо в рішення accept"
         }
       ],
       "rules": [
@@ -1374,6 +1425,96 @@
           "id": "TD-1",
           "severity": "warning",
           "text": "Щонайменше один запис має тип deliberate_prudent: свідомий борг з рішенням у беклозі"
+        },
+        {
+          "id": "TD-2",
+          "severity": "error",
+          "text": "У рішень pay_now і pay_later заповнений due_sprint, у рішення accept він порожній"
+        }
+      ]
+    },
+    {
+      "path": "lr11_risks_quality/changelog.csv",
+      "work": "ЛР11",
+      "title": "Журнал змін обсягу",
+      "key": "change_id",
+      "min_rows": 1,
+      "columns": [
+        {
+          "name": "change_id",
+          "type": "id",
+          "pattern": "^CH-\\d{2}$",
+          "required": true,
+          "unique": true,
+          "description": "Ключ запису журналу"
+        },
+        {
+          "name": "date",
+          "type": "date",
+          "required": true,
+          "description": "Дата, коли зміна прийшла"
+        },
+        {
+          "name": "source",
+          "type": "enum",
+          "enum": "change_source",
+          "required": true,
+          "description": "Звідки прийшла зміна: подія курсу, замовник, власне рішення, зовнішня вимога"
+        },
+        {
+          "name": "description",
+          "type": "text",
+          "required": true,
+          "description": "Чого просять або що змінюється"
+        },
+        {
+          "name": "story_ids",
+          "type": "id_list",
+          "ref": "lr06_backlog/backlog.csv:story_id",
+          "required": false,
+          "description": "Історії беклогу, яких зміна торкнулась: додані, винесені з релізу або переписані"
+        },
+        {
+          "name": "points_delta",
+          "type": "number",
+          "required": false,
+          "description": "На скільки story points змінився обсяг першого релізу; від'ємне число означає скорочення"
+        },
+        {
+          "name": "decision",
+          "type": "enum",
+          "enum": "change_decision",
+          "required": true,
+          "description": "Рішення: accepted беремо, rejected не беремо, deferred відкладаємо"
+        },
+        {
+          "name": "rationale",
+          "type": "text",
+          "required": true,
+          "description": "Чому саме таке рішення"
+        },
+        {
+          "name": "affected_files",
+          "type": "text",
+          "required": false,
+          "description": "Файли портфеля, оновлені через цю зміну, через крапку з комою"
+        }
+      ],
+      "rules": [
+        {
+          "id": "CH-1",
+          "severity": "error",
+          "text": "Щонайменше один рядок має source course_event: подія курсу відпрацьована в журналі"
+        },
+        {
+          "id": "CH-2",
+          "severity": "error",
+          "text": "У рядка з рішенням accepted заповнені points_delta і affected_files: прийнята зміна міняє числа і файли портфеля"
+        },
+        {
+          "id": "CH-3",
+          "severity": "warning",
+          "text": "У рядка з рішенням accepted заповнений story_ids: зміна обсягу, яка не торкнулась жодної історії, обсягу не змінила"
         }
       ]
     },
@@ -1436,7 +1577,7 @@
         {
           "id": "RC-5",
           "severity": "warning",
-          "text": "Активностей щонайменше шість, широку таблицю для людей команда показує в README"
+          "text": "Активностей щонайменше шість, широку таблицю для людей видно в README"
         }
       ]
     },
@@ -1666,7 +1807,7 @@
     {
       "id": "X-1",
       "severity": "error",
-      "text": "Кожен story_id в estimates.csv, votes.csv, risks.csv і flow.csv існує в backlog.csv"
+      "text": "Кожен story_id в estimates.csv, votes.csv, risks.csv, changelog.csv і flow.csv існує в backlog.csv"
     },
     {
       "id": "X-2",
@@ -1732,6 +1873,11 @@
       "id": "X-14",
       "severity": "warning",
       "text": "Кожен criterion_id зі lr05_charter/success_criteria.csv згаданий щонайменше в одній історії першого релізу"
+    },
+    {
+      "id": "X-15",
+      "severity": "warning",
+      "text": "Дата перегляду ризиків у risks.csv не раніша за кінець першого спринта у velocity.csv: реєстр переглядають після роботи, а не до неї"
     }
   ],
   "markdown_artifacts": [
@@ -1829,13 +1975,15 @@
       "path": "lr11_risks_quality/README.md",
       "work": "ЛР11",
       "title": "Ризики, якість і технічний борг",
-      "hint": "Топ ризиків червоної зони, як працює процес перегляду реєстру, звідки взявся техборг."
+      "hint": "Топ ризиків червоної зони, як працює процес перегляду реєстру, звідки взявся техборг і що змінилось у портфелі після події курсу.",
+      "skeleton": "tools/skeletons/lr11_risks_quality_README.md"
     },
     {
       "path": "lr11_risks_quality/dod.md",
       "work": "ЛР11",
-      "title": "Definition of Done команди",
-      "hint": "Чек-лист умов, за яких робота вважається завершеною. Спільний для всіх історій."
+      "title": "Definition of Done проєкту",
+      "hint": "Чек-лист умов, за яких робота вважається завершеною. Спільний для всіх історій.",
+      "skeleton": "tools/skeletons/lr11_dod.md"
     },
     {
       "path": "lr12_communication/README.md",
@@ -1847,14 +1995,14 @@
       "path": "lr13_roleplay/dialogue.md",
       "work": "ЛР13",
       "title": "Складна розмова зі стейкхолдером",
-      "hint": "Три відповіді стейкхолдерам, другі репліки після конвертів, таблиця ескалації. Копіюється під логін виконавця, балів не дає, є входом у ЛР15.",
+      "hint": "Три відповіді стейкхолдерам, другі репліки після конвертів, таблиця ескалації. Балів не дає, є входом у ЛР15.",
       "skeleton": "tools/skeletons/lr13_roleplay_dialogue.md"
     },
     {
       "path": "lr14_metrics/README.md",
       "work": "ЛР14",
       "title": "Аналіз метрик",
-      "hint": "Діагноз за еталонними даними курсу і за власними flow-метриками з flow.csv, рекомендації команді."
+      "hint": "Діагноз за еталонними даними курсу і за власними flow-метриками з flow.csv, рекомендації за результатом."
     },
     {
       "path": "lr15_status_report/README.md",

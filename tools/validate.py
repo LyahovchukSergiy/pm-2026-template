@@ -1157,6 +1157,64 @@ def rule_td_1(table, tables, report, rule):
                    'немає жодного запису типу deliberate_prudent')
 
 
+def rule_rk_5(table, tables, report, rule):
+    for idx, row in enumerate(table.rows):
+        prev = table.cell(row, 'previous_score')
+        if not prev:
+            continue
+        score = table.cell(row, 'score')
+        if INT_RE.match(prev) and INT_RE.match(score) and int(prev) == int(score):
+            report.add(rule['severity'], table.path, table.line(idx), rule['id'],
+                       'previous_score дорівнює score: оцінка не змінилась, лишіть колонку порожньою')
+        elif not table.cell(row, 'review_note'):
+            report.add(rule['severity'], table.path, table.line(idx), rule['id'],
+                       'оцінка змінилась, а review_note порожній: незрозуміло, що саме сталося')
+
+
+def rule_rk_6(table, tables, report, rule):
+    changed = sum(1 for row in table.rows if table.cell(row, 'previous_score'))
+    if changed < 2:
+        report.add(rule['severity'], table.path, 1, rule['id'],
+                   'переоцінених ризиків %d: реєстр, у якому після спринта не змінилось нічого, '
+                   'найчастіше не переглядали' % changed)
+
+
+def rule_td_2(table, tables, report, rule):
+    for idx, row in enumerate(table.rows):
+        decision = table.cell(row, 'decision')
+        due = table.cell(row, 'due_sprint')
+        if decision in ('pay_now', 'pay_later') and not due:
+            report.add(rule['severity'], table.path, table.line(idx), rule['id'],
+                       'рішення `%s` без due_sprint: «потім» без дати не настає ніколи' % decision)
+        if decision == 'accept' and due:
+            report.add(rule['severity'], table.path, table.line(idx), rule['id'],
+                       'рішення accept зі спринтом %s: або гасимо за планом, або свідомо не гасимо' % due)
+
+
+def rule_ch_1(table, tables, report, rule):
+    if 'course_event' not in table.col('source'):
+        report.add(rule['severity'], table.path, 1, rule['id'],
+                   'у журналі немає жодного рядка з source course_event: подія курсу не відпрацьована')
+
+
+def rule_ch_2(table, tables, report, rule):
+    for idx, row in enumerate(table.rows):
+        if table.cell(row, 'decision') != 'accepted':
+            continue
+        for name in ('points_delta', 'affected_files'):
+            if not table.cell(row, name):
+                report.add(rule['severity'], table.path, table.line(idx), rule['id'],
+                           'зміна прийнята, а `%s` порожній: прийнята зміна міняє числа і файли портфеля'
+                           % name)
+
+
+def rule_ch_3(table, tables, report, rule):
+    for idx, row in enumerate(table.rows):
+        if table.cell(row, 'decision') == 'accepted' and not table.cell(row, 'story_ids'):
+            report.add(rule['severity'], table.path, table.line(idx), rule['id'],
+                       'прийнята зміна не назвала жодної історії беклогу')
+
+
 def rule_rc_1(table, tables, report, rule):
     seen = {}
     for idx, row in enumerate(table.rows):
@@ -1302,7 +1360,9 @@ FILE_RULES = {
     'VL-1': rule_vl_1, 'VL-2': rule_vl_2, 'VL-3': rule_vl_3, 'VL-4': rule_vl_4,
     'FC-1': rule_fc_1, 'FC-2': rule_fc_2, 'FC-3': rule_fc_3,
     'RK-1': rule_rk_1, 'RK-2': rule_rk_2, 'RK-3': rule_rk_3,
-    'TD-1': rule_td_1,
+    'RK-5': rule_rk_5, 'RK-6': rule_rk_6,
+    'TD-1': rule_td_1, 'TD-2': rule_td_2,
+    'CH-1': rule_ch_1, 'CH-2': rule_ch_2, 'CH-3': rule_ch_3,
     'RC-1': rule_rc_1, 'RC-2': rule_rc_2, 'RC-3': rule_rc_3, 'RC-4': rule_rc_4, 'RC-5': rule_rc_5,
     'CM-1': rule_cm_1,
     'FL-1': rule_fl_1, 'FL-2': rule_fl_2, 'FL-3': rule_fl_3,
@@ -1513,10 +1573,29 @@ def cross_x14(root, tables, report, rule):
                        'його нічим буде виконати до релізу' % key)
 
 
+def cross_x15(root, tables, report, rule):
+    risks = tables.get('lr11_risks_quality/risks.csv')
+    velocity = tables.get('lr09_forecast/velocity.csv')
+    if not filled(risks) or not filled(velocity):
+        return
+    ends = [parse_date(velocity.cell(row, 'end_date')) for row in velocity.rows]
+    ends = [d for d in ends if d]
+    if not ends:
+        return
+    first_end = min(ends)
+    for idx, row in enumerate(risks.rows):
+        seen = parse_date(risks.cell(row, 'review_date'))
+        if seen and seen < first_end:
+            report.add(rule['severity'], 'lr11_risks_quality/risks.csv', risks.line(idx), rule['id'],
+                       'ризик %s переглянутий %s, а перший спринт закрився %s: '
+                       'це перша оцінка, а не перегляд'
+                       % (risks.cell(row, 'risk_id'), seen, first_end))
+
+
 CROSS_RULES = {'X-4': cross_x4, 'X-5': cross_x5, 'X-6': cross_x6, 'X-7': cross_x7, 'X-8': cross_x8,
                'X-9': cross_x9, 'X-10': cross_x10,
                'X-11': cross_x11, 'X-12': cross_x12,
-               'X-13': cross_x13, 'X-14': cross_x14}
+               'X-13': cross_x13, 'X-14': cross_x14, 'X-15': cross_x15}
 # X-1 і X-2 покриті перевіркою посилань колонок, X-3 порахований правилом FC-2.
 CROSS_COVERED = {'X-1', 'X-2', 'X-3'}
 
@@ -1532,6 +1611,7 @@ CROSS_SCOPE = {
     'X-12': ('lr07_wbs',),
     'X-13': ('lr06_backlog', 'lr07_wbs'),
     'X-14': ('lr05_charter', 'lr06_backlog'),
+    'X-15': ('lr11_risks_quality', 'lr09_forecast'),
 }
 
 

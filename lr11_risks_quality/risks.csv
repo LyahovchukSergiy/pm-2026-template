@@ -1,1 +1,1 @@
-risk_id,category,cause,event,consequence,probability,impact,score,strategy,owner,trigger,response_plan,status,related_story_ids
+risk_id,category,cause,event,consequence,probability,impact,score,strategy,owner,trigger,response_plan,status,review_date,previous_score,review_note,related_story_ids

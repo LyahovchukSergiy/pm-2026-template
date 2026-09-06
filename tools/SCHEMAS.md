@@ -1,6 +1,6 @@
 # Схеми артефактів курсу «Управління ІТ проєктами»
 
-Згенеровано з `tools/schemas.json`, версія схеми **1.15.0**, оновлено 2026-09-06.
+Згенеровано з `tools/schemas.json`, версія схеми **1.17.0**, оновлено 2026-09-06.
 
 Файл не редагується руками: правиться спека, далі запускається
 `python3 tools/generate_schema_docs.py`.
@@ -23,11 +23,13 @@
 | `single_source` | одне число має одне місце: оцінка тільки в estimates.csv, дати і статус тільки у flow.csv, беклог їх не дублює |
 | `stable_ids` | ID фіксуються при створенні і не перенумеровуються до кінця семестру |
 
-Формати ключів: `story_id` як `S-01`, `stakeholder_id` як `ST-01`, `wbs_id` як `1.2.3`, `release_id` як `REL-1`, `flow_item_id` як `F-001`, `finding_id` як `FN-01`, `dashboard_metric_id` як `MT-01`, `risk_id` як `R-01`, `debt_id` як `D-01`, `change_id` як `CH-01`, `activity_id` як `A-01`, `communication_id` як `C-01`, `budget_line_id` як `B-01`, `source_id` як `SRC-01`, `task_id` як `T-01`, `criterion_id` як `SC-01`.
+Формати ключів: `story_id` як `S-01`, `stakeholder_id` як `ST-01`, `wbs_id` як `1.2.3`, `release_id` як `REL-1`, `flow_item_id` як `F-001`, `finding_id` як `FN-01`, `dashboard_metric_id` як `MT-01`, `risk_id` як `R-01`, `debt_id` як `D-01`, `change_id` як `CH-01`, `activity_id` як `A-01`, `communication_id` як `C-01`, `budget_line_id` як `B-01`, `source_id` як `SRC-01`, `task_id` як `T-01`, `criterion_id` як `SC-01`, `ai_item_id` як `AT-01`, `prompt_run_id` як `P-01`, `ai_error_id` як `ER-01`, `time_case_id` як `TS-01`, `ai_rule_id` як `PL-01`.
 
 
 ## Словники значень
 
+- `ai_error_type`: `fabrication`, `omission`, `overconfidence`, `other`
+- `ai_mode`: `autonomous`, `draft`, `forbidden`
 - `approach`: `predictive`, `adaptive`, `hybrid`
 - `attitude`: `supporter`, `neutral`, `blocker`
 - `budget_category`: `labor`, `tools`, `infrastructure`, `other`, `contingency`, `management_reserve`
@@ -45,9 +47,12 @@
 - `impact_dimension`: `scope`, `schedule`, `budget`, `quality`, `risk`
 - `influence`: `low`, `high`
 - `interest`: `low`, `high`
+- `item_origin`: `mine`, `ai`, `both`
 - `lr02_case`: `C-1`, `C-2`, `C-3`
 - `moscow_class`: `must`, `should`, `could`, `wont`
+- `note_item_type`: `task`, `decision`, `open_question`
 - `priority_method`: `moscow`, `rice`, `wsjf`
+- `prompt_result`: `used`, `used_with_edits`, `rejected`
 - `pull`: `predictive`, `adaptive`, `neutral`
 - `raci_role`: `R`, `A`, `AR`, `C`, `I`
 - `reference_dataset`: `burndown`, `cfd`, `dora`
@@ -56,6 +61,7 @@
 - `risk_strategy`: `avoid`, `mitigate`, `transfer`, `accept`, `escalate`
 - `stakeholder_strategy`: `manage_closely`, `keep_satisfied`, `keep_informed`, `monitor`
 - `story_points`: `0`, `1`, `2`, `3`, `5`, `8`, `13`, `21`, `?`
+- `time_basis`: `measured`, `estimated`
 - `yes_no`: `yes`, `no`
 
 ## Файли
@@ -87,6 +93,11 @@
 | ЛР16 | `lr16_budget/rate_card.csv` | `role` | 3 |
 | ЛР16 | `lr16_budget/budget.csv` | `line_id` | 6 |
 | ЛР16 | `lr16_budget/plan_fact.csv` | `sprint` | 2 |
+| ЛР17 | `lr17_ai_assistant/tasks.csv` | `item_id` | 8 |
+| ЛР17 | `lr17_ai_assistant/prompts.csv` | `run_id` | 6 |
+| ЛР17 | `lr17_ai_assistant/errors.csv` | `error_id` | 3 |
+| ЛР17 | `lr17_ai_assistant/time_saved.csv` | `case_id` | 3 |
+| ЛР17 | `lr17_ai_assistant/policy.csv` | `rule_id` | 6 |
 
 ## Карта залежностей портфеля
 
@@ -121,9 +132,15 @@ flowchart LR
   lr16_budget_rate_card_csv["ЛР16<br/>lr16_budget/rate_card.csv"]
   lr16_budget_budget_csv["ЛР16<br/>lr16_budget/budget.csv"]
   lr16_budget_plan_fact_csv["ЛР16<br/>lr16_budget/plan_fact.csv"]
+  lr17_ai_assistant_tasks_csv["ЛР17<br/>lr17_ai_assistant/tasks.csv"]
+  lr17_ai_assistant_prompts_csv["ЛР17<br/>lr17_ai_assistant/prompts.csv"]
+  lr17_ai_assistant_errors_csv["ЛР17<br/>lr17_ai_assistant/errors.csv"]
+  lr17_ai_assistant_time_saved_csv["ЛР17<br/>lr17_ai_assistant/time_saved.csv"]
+  lr17_ai_assistant_policy_csv["ЛР17<br/>lr17_ai_assistant/policy.csv"]
   lr01_case_README_md["ЛР1<br/>lr01_case/README.md"]
   lr15_status_report_README_md["ЛР15<br/>lr15_status_report/README.md"]
   lr15_status_report_change_request_md["ЛР15<br/>lr15_status_report/change_request.md"]
+  lr17_ai_assistant_input_notes_md["ЛР17<br/>lr17_ai_assistant/input_notes.md"]
   lr02_approach_decision_csv -->|case_id| lr02_approach_approach_csv
   lr05_charter_stakeholders_csv -->|accepted_by| lr05_charter_success_criteria_csv
   lr05_charter_success_criteria_csv -->|success_criterion| lr06_backlog_backlog_csv
@@ -139,6 +156,7 @@ flowchart LR
   lr06_backlog_backlog_csv -->|story_id| lr14_metrics_flow_csv
   lr05_charter_stakeholders_csv -->|reader| lr14_metrics_dashboard_csv
   lr11_risks_quality_risks_csv -->|risk_ids| lr15_status_report_impact_csv
+  lr17_ai_assistant_prompts_csv -->|run_id| lr17_ai_assistant_errors_csv
   lr01_case_sources_csv -.->|X-7, X-8| lr01_case_README_md
   lr06_backlog_backlog_csv -.->|X-13| lr07_wbs_roadmap_csv
   lr07_wbs_wbs_csv -.->|X-4| lr16_budget_budget_csv
@@ -149,6 +167,7 @@ flowchart LR
   lr14_metrics_dashboard_csv -.->|X-17| lr15_status_report_README_md
   lr14_metrics_dashboard_csv -.->|X-16| lr15_status_report_impact_csv
   lr16_budget_rate_card_csv -.->|X-19, X-20| lr16_budget_budget_csv
+  lr17_ai_assistant_tasks_csv -.->|X-22| lr17_ai_assistant_input_notes_md
 ```
 
 Файли без стрілок теж обов'язкові: вони просто не мають спільних
@@ -847,6 +866,145 @@ sprint,planned_points,actual_points,planned_cost_per_point,actual_cost_per_point
 - `PF-3` (error): planned_cost_per_point однаковий в обох рядках: план береться з варіанта і між спринтами не змінюється
 - `PF-4` (warning): В обох спринтах actual_points дорівнює planned_points: план, який збігся двічі підряд, буває, але частіше це числа, підігнані під нуль відхилення
 
+### Розбір нотаток зустрічі на задачі, рішення і питання, `lr17_ai_assistant/tasks.csv`
+
+Робота ЛР17. Ключ: `item_id`. Мінімум рядків: 8.
+
+| Колонка | Тип | Обов'язкова | Обмеження | Опис |
+| --- | --- | :-: | --- | --- |
+| `item_id` | ідентифікатор | так | формат `^AT-\d{2}$`; унікальне | Ключ пункту |
+| `source_line` | ідентифікатор | так | формат `^N-\d{2}$` | Тег рядка нотаток, з якого пункт узятий |
+| `type` | значення зі словника | так | одне з: `task`, `decision`, `open_question` | Задача, ухвалене рішення або відкрите питання |
+| `item` | текст | так |  | Сам пункт одним реченням |
+| `origin` | значення зі словника | так | одне з: `mine`, `ai`, `both` | Хто його знайшов: ви, інструмент або обидва |
+| `owner` | текст | ні |  | Відповідальний, названий у нотатках; порожньо, якщо не названий |
+| `note` | текст | ні |  | Чим цей пункт відрізняється у двох версіях |
+
+Рядок заголовків:
+
+```
+item_id,source_line,type,item,origin,owner,note
+```
+
+Правила файла:
+
+- `TK-1` (error): Щонайменше один рядок з origin mine і щонайменше один з origin ai: колонка з одним значенням це не порівняння двох версій, а одна версія
+- `TK-2` (error): Щонайменше два рядки типу open_question: зустріч, після якої не лишилось жодного питання до замовника, у нотатках курсу не описана
+- `TK-3` (error): Щонайменше два рядки типу task: перелік з самих питань і рішень не є розбором нотаток
+- `TK-4` (warning): У всіх рядків типу task заповнений owner: у нотатках є щонайменше одна задача, відповідального якої не назвали, і порожній owner там це знахідка, а не пропуск
+- `TK-5` (warning): У рядків з origin mine або ai порожня колонка note: саме ці рядки і є дифф двох версій, і без пояснення вони нічим не відрізняються від решти
+
+### Журнал промптів за семестр, `lr17_ai_assistant/prompts.csv`
+
+Робота ЛР17. Ключ: `run_id`. Мінімум рядків: 6.
+
+| Колонка | Тип | Обов'язкова | Обмеження | Опис |
+| --- | --- | :-: | --- | --- |
+| `run_id` | ідентифікатор | так | формат `^P-\d{2}$`; унікальне | Ключ запуску |
+| `date` | дата | так |  | Дата запуску |
+| `tool` | текст | так |  | Інструмент і, якщо відома, модель |
+| `goal` | текст | так |  | Що просили зробити |
+| `artifact` | текст | так |  | Файл портфеля, куди пішов результат |
+| `has_input` | значення зі словника | так | одне з: `yes`, `no` | Чи були у промпті вхідні дані, а не сам опис задачі |
+| `iterations` | ціле число | так | не менше 1 | Скільки разів уточнювали промпт |
+| `result` | значення зі словника | так | одне з: `used`, `used_with_edits`, `rejected` | Що зробили з відповіддю |
+| `note` | текст | ні |  | Що саме довелось правити |
+
+Рядок заголовків:
+
+```
+run_id,date,tool,goal,artifact,has_input,iterations,result,note
+```
+
+Правила файла:
+
+- `PR-1` (error): Щонайменше три рядки мають has_input yes: промпт без вхідних даних це запрошення до фантазії
+- `PR-2` (error): Щонайменше один рядок має iterations від 2: перша відповідь це чернетка для уточнення, а не результат
+- `PR-3` (error): Щонайменше два різні значення artifact: журнал з одного файла це не журнал за семестр
+- `PR-4` (warning): У всіх рядків result дорівнює used: журнал, у якому жодну відповідь не правили і не відкинули, описує не роботу, а бажаний результат
+- `PR-5` (warning): Усі рядки мають одну дату: журнал за семестр, зібраний за один вечір, відновлений з пам'яті
+- `PR-6` (error): Щонайменше три значення artifact це шлях до файла портфеля, тобто містять «/» і розширення .csv або .md: журнал називає файли, а не теми розмови
+
+### Помилки інструмента і те, як їх помітили, `lr17_ai_assistant/errors.csv`
+
+Робота ЛР17. Ключ: `error_id`. Мінімум рядків: 3.
+
+| Колонка | Тип | Обов'язкова | Обмеження | Опис |
+| --- | --- | :-: | --- | --- |
+| `error_id` | ідентифікатор | так | формат `^ER-\d{2}$`; унікальне | Ключ помилки |
+| `run_id` | ідентифікатор | так | посилання на `lr17_ai_assistant/prompts.csv:run_id` | Запуск із журналу промптів, у якому помилка сталась |
+| `error_type` | значення зі словника | так | одне з: `fabrication`, `omission`, `overconfidence`, `other` | Тип помилки |
+| `what_ai_said` | текст | так |  | Що саме видав інструмент, цитатою або близько до тексту |
+| `why_wrong` | текст | так |  | Чим це неправда або чого в ньому бракує |
+| `how_noticed` | текст | так |  | З чим звірили: файл портфеля, тег рядка нотаток або посилання |
+| `fix` | текст | так |  | Що поставили замість |
+
+Рядок заголовків:
+
+```
+error_id,run_id,error_type,what_ai_said,why_wrong,how_noticed,fix
+```
+
+Правила файла:
+
+- `ER-1` (error): Щонайменше два різні значення error_type: перелік з однієї помилки, повтореної тричі, не показує меж інструмента
+- `ER-2` (error): how_noticed називає джерело звірки: ім'я файла з розширенням, тег рядка нотаток формату N-NN або посилання. «Побачив, що не так» це не спосіб помітити
+- `ER-3` (warning): Усі рядки посилаються на один run_id: одна невдала спроба це не перелік помилок інструмента
+
+### Заощаджений час із способом підрахунку, `lr17_ai_assistant/time_saved.csv`
+
+Робота ЛР17. Ключ: `case_id`. Мінімум рядків: 3.
+
+| Колонка | Тип | Обов'язкова | Обмеження | Опис |
+| --- | --- | :-: | --- | --- |
+| `case_id` | ідентифікатор | так | формат `^TS-\d{2}$`; унікальне | Ключ випадку |
+| `task` | текст | так |  | Яка саме робота |
+| `basis` | значення зі словника | так | одне з: `measured`, `estimated` | Заміряно чи оцінено |
+| `minutes_manual` | ціле число | так | не менше 1 | Скільки ця робота займає руками, хвилин |
+| `minutes_ai` | ціле число | так | не менше 0 | Скільки зайняли промпт і генерація, хвилин |
+| `minutes_review` | ціле число | так | не менше 0 | Скільки зайняла перевірка результату, хвилин |
+| `minutes_saved` | ціле число | так |  | Різниця, може бути від'ємною |
+| `how_measured` | текст | так |  | Звідки взяті числа |
+
+Рядок заголовків:
+
+```
+case_id,task,basis,minutes_manual,minutes_ai,minutes_review,minutes_saved,how_measured
+```
+
+Правила файла:
+
+- `TS-1` (error): minutes_saved дорівнює minutes_manual мінус minutes_ai мінус minutes_review
+- `TS-2` (error): Щонайменше один рядок має basis measured: сьогоднішні запуски ви робили з годинником, і хоча б один випадок у переліку заміряний, а не пригаданий
+- `TS-3` (error): minutes_review більший за нуль у кожному рядку: результат, який ніхто не перевіряв, не заощаджує час, а переносить ризик далі
+- `TS-4` (warning): minutes_saved додатний у всіх рядках: за семестр буває і навпаки, і випадок, де перевірка з'їла виграш, у переліку цінніший за решту
+
+### Правило роботи з AI на власному проєкті, `lr17_ai_assistant/policy.csv`
+
+Робота ЛР17. Ключ: `rule_id`. Мінімум рядків: 6.
+
+| Колонка | Тип | Обов'язкова | Обмеження | Опис |
+| --- | --- | :-: | --- | --- |
+| `rule_id` | ідентифікатор | так | формат `^PL-\d{2}$`; унікальне | Ключ правила |
+| `case` | текст | так |  | Яка робота або який тип даних |
+| `mode` | значення зі словника | так | одне з: `autonomous`, `draft`, `forbidden` | Режим: робить сам, дає чернетку під рев'ю, не робить |
+| `owner` | текст | так |  | Хто підписується під результатом |
+| `check` | текст | так |  | Чим результат перевіряється до використання |
+| `why` | текст | так |  | Чому саме такий режим |
+
+Рядок заголовків:
+
+```
+rule_id,case,mode,owner,check,why
+```
+
+Правила файла:
+
+- `PL-1` (error): Щонайменше два рядки forbidden і щонайменше два draft: правило, у якому дозволено все, не є правилом
+- `PL-2` (error): Щонайменше в одного рядка case називає файл вашого портфеля, тобто містить .csv або .md: правило пишеться під власний проєкт, а не взагалі
+- `PL-3` (warning): Жоден рядок не стосується даних, які не можна віддавати зовнішній моделі: у case немає ні «персональн», ні «конфіденц», ні «NDA»
+- `PL-4` (error): Щонайменше один рядок з режимом autonomous: політика, у якій інструмент не робить нічого сам, описує не роботу з ним, а відмову від нього
+
 ## Наскрізні правила
 
 | Правило | Рівень | Опис |
@@ -872,6 +1030,9 @@ sprint,planned_points,actual_points,planned_cost_per_point,actual_cost_per_point
 | `X-19` | error | Кожна ставка rate трудового рядка lr16_budget/budget.csv є в колонці rate файла lr16_budget/rate_card.csv: кошторис рахується за прайсом, а не поруч із ним |
 | `X-20` | error | Сума hours категорії labor у lr16_budget/budget.csv відрізняється від суми hours у lr16_budget/rate_card.csv не більше ніж на 15 відсотків |
 | `X-21` | warning | actual_points у lr16_budget/plan_fact.csv збігається з points_done відповідного спринта lr09_forecast/velocity.csv |
+| `X-22` | error | Кожен source_line у lr17_ai_assistant/tasks.csv є тегом рядка у lr17_ai_assistant/input_notes.md: пункт, якого в нотатках немає, це не розбір нотаток |
+| `X-23` | warning | Кожен artifact у lr17_ai_assistant/prompts.csv це шлях до файла, і цей файл існує у вашому репозиторії |
+| `X-24` | warning | Щонайменше три рядки lr17_ai_assistant/prompts.csv мають artifact поза папкою lr17_ai_assistant: журнал за семестр, у якому всі запуски зроблені в останній роботі |
 
 ## Артефакти у Markdown
 
@@ -899,7 +1060,8 @@ sprint,planned_points,actual_points,planned_cost_per_point,actual_cost_per_point
 | ЛР15 | `lr15_status_report/README.md` | Звіт на одну сторінку за структурою курсу: RAG-статус із критерієм, головне трьома реченнями, топ-3 ризики, три числа з дашборда і те, якого рішення ви просите в стейкхолдера. |
 | ЛР15 | `lr15_status_report/change_request.md` | Що просить замовник, варіанти дій, рішення approve, reject або defer і три речення для замовника. Числа впливу лежать поруч в impact.csv. |
 | ЛР16 | `lr16_budget/README.md` | Rate card і звідки взяті ставки, відсоток contingency, різниця між двома резервами, порівняння Fixed Price проти Time and Material у гривнях, обрана модель з її недоліком і прогноз до завершення за фактичним темпом. |
-| ЛР17 | `lr17_ai_assistant/README.md` | Що автоматизували, промпти, і головне: де інструмент помилявся і як це виявили. |
+| ЛР17 | `lr17_ai_assistant/input_notes.md` | Дослівна копія розділу вашої теми з lr17_meeting_notes.md разом із тегами рядків. |
+| ЛР17 | `lr17_ai_assistant/README.md` | Що автоматизували і що показало порівняння двох версій одного документа, чому саме такі межі в правилі роботи з AI, і повний текст трьох промптів роботи. |
 | ЛР18 | `lr18_closure/closure_report.md` | Що прийнято, що не завершено, як передається продукт, яка цінність отримана, lessons learned. Здається в репозиторій до пари захисту. |
 
 ## Рівні перевірки

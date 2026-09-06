@@ -1683,6 +1683,187 @@ def rule_bg_4(table, tables, report, rule):
                    % (expected, direct, actual))
 
 
+# ------------------------------------------------------------------ ЛР17, AI
+
+def _count(table, name, value):
+    return sum(1 for v in table.col(name) if v == value)
+
+
+def rule_tk_1(table, tables, report, rule):
+    for value in ('mine', 'ai'):
+        if _count(table, 'origin', value) == 0:
+            report.add(rule['severity'], table.path, 1, rule['id'],
+                       'жодного рядка з origin %s: у файлі одна версія переліку, а не дві' % value)
+
+
+def rule_tk_2(table, tables, report, rule):
+    count = _count(table, 'type', 'open_question')
+    if count < 2:
+        report.add(rule['severity'], table.path, 1, rule['id'],
+                   'відкритих питань %d, а рядків «Питання без відповіді» у нотатках два' % count)
+
+
+def rule_tk_3(table, tables, report, rule):
+    count = _count(table, 'type', 'task')
+    if count < 2:
+        report.add(rule['severity'], table.path, 1, rule['id'],
+                   'задач у переліку %d: розбір нотаток без задач це не розбір' % count)
+
+
+def rule_tk_4(table, tables, report, rule):
+    tasks = [row for row in table.rows if table.cell(row, 'type') == 'task']
+    if tasks and all(table.cell(row, 'owner') for row in tasks):
+        report.add(rule['severity'], table.path, 1, rule['id'],
+                   'у кожної задачі стоїть відповідальний, хоча в нотатках названі не всі: '
+                   'перевірте, чи не дописав їх інструмент')
+
+
+def rule_tk_5(table, tables, report, rule):
+    for idx, row in enumerate(table.rows):
+        if table.cell(row, 'origin') in ('mine', 'ai') and not table.cell(row, 'note'):
+            report.add(rule['severity'], table.path, table.line(idx), rule['id'],
+                       'у пункту %s не сказано, чим він відрізняється у двох версіях'
+                       % table.cell(row, 'item_id'))
+
+
+def rule_pr_1(table, tables, report, rule):
+    count = _count(table, 'has_input', 'yes')
+    if count < 3:
+        report.add(rule['severity'], table.path, 1, rule['id'],
+                   'запусків із вхідними даними %d, а потрібно щонайменше три' % count)
+
+
+def rule_pr_2(table, tables, report, rule):
+    if not any(num(v) >= 2 for v in table.col('iterations')):
+        report.add(rule['severity'], table.path, 1, rule['id'],
+                   'жоден промпт не уточнювався: у журналі немає ітерації')
+
+
+def rule_pr_3(table, tables, report, rule):
+    kinds = set(v.strip() for v in table.col('artifact') if v.strip())
+    if len(kinds) < 2:
+        report.add(rule['severity'], table.path, 1, rule['id'],
+                   'усі запуски пішли в один файл: журнал за семестр так не виглядає')
+
+
+def rule_pr_4(table, tables, report, rule):
+    results = [v for v in table.col('result') if v]
+    if results and all(v == 'used' for v in results):
+        report.add(rule['severity'], table.path, 1, rule['id'],
+                   'жодну відповідь не правили і не відкинули: перевірте, чи це журнал роботи')
+
+
+def rule_pr_5(table, tables, report, rule):
+    dates = set(v for v in table.col('date') if v)
+    if len(dates) == 1:
+        report.add(rule['severity'], table.path, 1, rule['id'],
+                   'усі запуски датовані одним днем: журнал за семестр зібраний за вечір')
+
+
+PATH_RE = re.compile(r'/[^,]*\.(csv|md)$', re.IGNORECASE)
+
+
+def rule_pr_6(table, tables, report, rule):
+    count = sum(1 for v in table.col('artifact') if PATH_RE.search((v or '').strip()))
+    if count < 3:
+        report.add(rule['severity'], table.path, 1, rule['id'],
+                   'шляхів до файлів у колонці artifact лише %d, а потрібно щонайменше три' % count)
+
+
+NO_SOURCE_RE = re.compile(r'\.(csv|md|json|txt|xlsx|pdf)\b|N-\d{2}|https?://', re.IGNORECASE)
+
+
+def rule_er_1(table, tables, report, rule):
+    kinds = set(v for v in table.col('error_type') if v)
+    if len(kinds) < 2:
+        report.add(rule['severity'], table.path, 1, rule['id'],
+                   'усі помилки одного типу: перелік не показує меж інструмента')
+
+
+def rule_er_2(table, tables, report, rule):
+    for idx, row in enumerate(table.rows):
+        value = table.cell(row, 'how_noticed')
+        if value and not NO_SOURCE_RE.search(value):
+            report.add(rule['severity'], table.path, table.line(idx), rule['id'],
+                       'у помилки %s не названо, з чим звіряли: немає ні файла, ні тега рядка, '
+                       'ні посилання' % table.cell(row, 'error_id'))
+
+
+def rule_er_3(table, tables, report, rule):
+    runs = set(v for v in table.col('run_id') if v)
+    if len(runs) == 1:
+        report.add(rule['severity'], table.path, 1, rule['id'],
+                   'усі помилки з одного запуску: це одна невдала спроба, а не межі інструмента')
+
+
+def rule_ts_1(table, tables, report, rule):
+    for idx, row in enumerate(table.rows):
+        expected = (num(table.cell(row, 'minutes_manual'))
+                    - num(table.cell(row, 'minutes_ai'))
+                    - num(table.cell(row, 'minutes_review')))
+        actual = num(table.cell(row, 'minutes_saved'))
+        if abs(expected - actual) > 0.01:
+            report.add(rule['severity'], table.path, table.line(idx), rule['id'],
+                       'у випадку %s різниця дає %.0f хвилин, а записано %.0f'
+                       % (table.cell(row, 'case_id'), expected, actual))
+
+
+def rule_ts_2(table, tables, report, rule):
+    if _count(table, 'basis', 'measured') == 0:
+        report.add(rule['severity'], table.path, 1, rule['id'],
+                   'жоден випадок не заміряний: усі числа пригадані')
+
+
+def rule_ts_3(table, tables, report, rule):
+    for idx, row in enumerate(table.rows):
+        if num(table.cell(row, 'minutes_review')) <= 0:
+            report.add(rule['severity'], table.path, table.line(idx), rule['id'],
+                       'у випадку %s на перевірку результату витрачено нуль хвилин'
+                       % table.cell(row, 'case_id'))
+
+
+def rule_ts_4(table, tables, report, rule):
+    values = [num(v) for v in table.col('minutes_saved')]
+    if values and all(v > 0 for v in values):
+        report.add(rule['severity'], table.path, 1, rule['id'],
+                   'виграш у всіх випадках додатний: жодного разу перевірка не з\'їла економію')
+
+
+def rule_pl_1(table, tables, report, rule):
+    for value, minimum in (('forbidden', 2), ('draft', 2)):
+        count = _count(table, 'mode', value)
+        if count < minimum:
+            report.add(rule['severity'], table.path, 1, rule['id'],
+                       'рядків з режимом %s лише %d, а потрібно щонайменше %d'
+                       % (value, count, minimum))
+
+
+FILE_NAME_RE = re.compile(r'\.(csv|md)\b', re.IGNORECASE)
+
+
+def rule_pl_2(table, tables, report, rule):
+    if not any(FILE_NAME_RE.search(v or '') for v in table.col('case')):
+        report.add(rule['severity'], table.path, 1, rule['id'],
+                   'жодне правило не називає файла портфеля: політика написана взагалі, '
+                   'а не під власний проєкт')
+
+
+def rule_pl_4(table, tables, report, rule):
+    if _count(table, 'mode', 'autonomous') == 0:
+        report.add(rule['severity'], table.path, 1, rule['id'],
+                   'жодного рядка з режимом autonomous: це відмова від інструмента, а не правило роботи з ним')
+
+
+CONFIDENTIAL_WORDS = ('персональн', 'конфіденц', 'nda', 'приватн')
+
+
+def rule_pl_3(table, tables, report, rule):
+    joined = ' '.join(v.lower() for v in table.col('case'))
+    if not any(word in joined for word in CONFIDENTIAL_WORDS):
+        report.add(rule['severity'], table.path, 1, rule['id'],
+                   'у політиці немає рядка про дані, які не можна віддавати зовнішній моделі')
+
+
 FILE_RULES = {
     'SRC-1': rule_src_1, 'SRC-2': rule_src_2, 'SRC-3': rule_src_3, 'SRC-4': rule_src_4,
     'AP-1': rule_ap_1, 'AP-2': rule_ap_2, 'AP-3': rule_ap_3, 'AP-4': rule_ap_4, 'AP-5': rule_ap_5,
@@ -1718,6 +1899,12 @@ FILE_RULES = {
     'BG-5': rule_bg_5, 'BG-6': rule_bg_6, 'BG-7': rule_bg_7,
     'RT-1': rule_rt_1, 'RT-2': rule_rt_2, 'RT-3': rule_rt_3,
     'PF-1': rule_pf_1, 'PF-2': rule_pf_2, 'PF-3': rule_pf_3, 'PF-4': rule_pf_4,
+    'TK-1': rule_tk_1, 'TK-2': rule_tk_2, 'TK-3': rule_tk_3, 'TK-4': rule_tk_4, 'TK-5': rule_tk_5,
+    'PR-1': rule_pr_1, 'PR-2': rule_pr_2, 'PR-3': rule_pr_3, 'PR-4': rule_pr_4,
+    'PR-5': rule_pr_5, 'PR-6': rule_pr_6,
+    'ER-1': rule_er_1, 'ER-2': rule_er_2, 'ER-3': rule_er_3,
+    'TS-1': rule_ts_1, 'TS-2': rule_ts_2, 'TS-3': rule_ts_3, 'TS-4': rule_ts_4,
+    'PL-1': rule_pl_1, 'PL-2': rule_pl_2, 'PL-3': rule_pl_3, 'PL-4': rule_pl_4,
 }
 
 # Правила, які покриті перевіркою посилань або іншим правилом.
@@ -2128,12 +2315,67 @@ def cross_x21(root, tables, report, rule):
                        % (sprint, done[sprint], fact.cell(row, 'actual_points')))
 
 
+NOTE_TAG_RE = re.compile(r'\bN-\d{2}\b')
+
+
+def cross_x22(root, tables, report, rule):
+    tasks = tables.get('lr17_ai_assistant/tasks.csv')
+    if not filled(tasks):
+        return
+    text = read_text(root, 'lr17_ai_assistant/input_notes.md')
+    if text is None:
+        report.add(rule['severity'], 'lr17_ai_assistant/tasks.csv', 1, rule['id'],
+                   'немає файла lr17_ai_assistant/input_notes.md: перевірити теги рядків нічим')
+        return
+    tags = set(NOTE_TAG_RE.findall(text))
+    if not tags:
+        report.add(rule['severity'], 'lr17_ai_assistant/input_notes.md', 1, rule['id'],
+                   'у нотатках немає жодного тега рядка формату N-NN: '
+                   'копія зроблена без тегів')
+        return
+    for idx, row in enumerate(tasks.rows):
+        value = tasks.cell(row, 'source_line')
+        if value and value not in tags:
+            report.add(rule['severity'], 'lr17_ai_assistant/tasks.csv', tasks.line(idx), rule['id'],
+                       'рядка %s у ваших нотатках немає' % value)
+
+
+def cross_x23(root, tables, report, rule):
+    prompts = tables.get('lr17_ai_assistant/prompts.csv')
+    if not filled(prompts):
+        return
+    for idx, row in enumerate(prompts.rows):
+        value = (prompts.cell(row, 'artifact') or '').strip()
+        if not value:
+            continue
+        if not PATH_RE.search(value):
+            report.add(rule['severity'], 'lr17_ai_assistant/prompts.csv', prompts.line(idx), rule['id'],
+                       'значення «%s» не схоже на шлях до файла портфеля' % value)
+            continue
+        if not os.path.exists(os.path.join(root, value)):
+            report.add(rule['severity'], 'lr17_ai_assistant/prompts.csv', prompts.line(idx), rule['id'],
+                       'файла %s у репозиторії немає' % value)
+
+
+def cross_x24(root, tables, report, rule):
+    prompts = tables.get('lr17_ai_assistant/prompts.csv')
+    if not filled(prompts):
+        return
+    outside = sum(1 for row in prompts.rows
+                  if not (prompts.cell(row, 'artifact') or '').strip().startswith('lr17_ai_assistant'))
+    if outside < 3:
+        report.add(rule['severity'], 'lr17_ai_assistant/prompts.csv', 1, rule['id'],
+                   'поза папкою ЛР17 лише %d запусків: журнал за семестр зібраний з однієї роботи'
+                   % outside)
+
+
 CROSS_RULES = {'X-4': cross_x4, 'X-5': cross_x5, 'X-6': cross_x6, 'X-7': cross_x7, 'X-8': cross_x8,
                'X-9': cross_x9, 'X-10': cross_x10,
                'X-11': cross_x11, 'X-12': cross_x12,
                'X-13': cross_x13, 'X-14': cross_x14, 'X-15': cross_x15,
                'X-16': cross_x16, 'X-17': cross_x17, 'X-18': cross_x18,
-               'X-19': cross_x19, 'X-20': cross_x20, 'X-21': cross_x21}
+               'X-19': cross_x19, 'X-20': cross_x20, 'X-21': cross_x21,
+               'X-22': cross_x22, 'X-23': cross_x23, 'X-24': cross_x24}
 # X-1 і X-2 покриті перевіркою посилань колонок, X-3 порахований правилом FC-2.
 CROSS_COVERED = {'X-1', 'X-2', 'X-3'}
 
@@ -2156,6 +2398,9 @@ CROSS_SCOPE = {
     'X-19': ('lr16_budget',),
     'X-20': ('lr16_budget',),
     'X-21': ('lr16_budget', 'lr09_forecast'),
+    'X-22': ('lr17_ai_assistant',),
+    'X-23': ('lr17_ai_assistant',),
+    'X-24': ('lr17_ai_assistant',),
 }
 
 

@@ -1,5 +1,5 @@
 {
-  "schema_version": "1.15.0",
+  "schema_version": "1.17.0",
   "updated": "2026-09-06",
   "course": "Управління ІТ проєктами, 2026",
   "note": "Джерело правди для схем артефактів. Валідатор, умови робіт і шаблон репозиторію студента беруть колонки звідси. Правити тільки тут, далі перегенерувати SCHEMAS.md і шаблони.",
@@ -32,7 +32,12 @@
       "budget_line_id": "B-01",
       "source_id": "SRC-01",
       "task_id": "T-01",
-      "criterion_id": "SC-01"
+      "criterion_id": "SC-01",
+      "ai_item_id": "AT-01",
+      "prompt_run_id": "P-01",
+      "ai_error_id": "ER-01",
+      "time_case_id": "TS-01",
+      "ai_rule_id": "PL-01"
     }
   },
   "enums": {
@@ -212,6 +217,36 @@
       "budget",
       "quality",
       "risk"
+    ],
+    "note_item_type": [
+      "task",
+      "decision",
+      "open_question"
+    ],
+    "item_origin": [
+      "mine",
+      "ai",
+      "both"
+    ],
+    "prompt_result": [
+      "used",
+      "used_with_edits",
+      "rejected"
+    ],
+    "ai_error_type": [
+      "fabrication",
+      "omission",
+      "overconfidence",
+      "other"
+    ],
+    "time_basis": [
+      "measured",
+      "estimated"
+    ],
+    "ai_mode": [
+      "autonomous",
+      "draft",
+      "forbidden"
     ]
   },
   "files": [
@@ -2252,6 +2287,416 @@
           "text": "В обох спринтах actual_points дорівнює planned_points: план, який збігся двічі підряд, буває, але частіше це числа, підігнані під нуль відхилення"
         }
       ]
+    },
+    {
+      "path": "lr17_ai_assistant/tasks.csv",
+      "work": "ЛР17",
+      "title": "Розбір нотаток зустрічі на задачі, рішення і питання",
+      "key": "item_id",
+      "min_rows": 8,
+      "columns": [
+        {
+          "name": "item_id",
+          "type": "id",
+          "pattern": "^AT-\\d{2}$",
+          "required": true,
+          "unique": true,
+          "description": "Ключ пункту"
+        },
+        {
+          "name": "source_line",
+          "type": "id",
+          "pattern": "^N-\\d{2}$",
+          "required": true,
+          "description": "Тег рядка нотаток, з якого пункт узятий"
+        },
+        {
+          "name": "type",
+          "type": "enum",
+          "enum": "note_item_type",
+          "required": true,
+          "description": "Задача, ухвалене рішення або відкрите питання"
+        },
+        {
+          "name": "item",
+          "type": "text",
+          "required": true,
+          "description": "Сам пункт одним реченням"
+        },
+        {
+          "name": "origin",
+          "type": "enum",
+          "enum": "item_origin",
+          "required": true,
+          "description": "Хто його знайшов: ви, інструмент або обидва"
+        },
+        {
+          "name": "owner",
+          "type": "text",
+          "required": false,
+          "description": "Відповідальний, названий у нотатках; порожньо, якщо не названий"
+        },
+        {
+          "name": "note",
+          "type": "text",
+          "required": false,
+          "description": "Чим цей пункт відрізняється у двох версіях"
+        }
+      ],
+      "rules": [
+        {
+          "id": "TK-1",
+          "severity": "error",
+          "text": "Щонайменше один рядок з origin mine і щонайменше один з origin ai: колонка з одним значенням це не порівняння двох версій, а одна версія"
+        },
+        {
+          "id": "TK-2",
+          "severity": "error",
+          "text": "Щонайменше два рядки типу open_question: зустріч, після якої не лишилось жодного питання до замовника, у нотатках курсу не описана"
+        },
+        {
+          "id": "TK-3",
+          "severity": "error",
+          "text": "Щонайменше два рядки типу task: перелік з самих питань і рішень не є розбором нотаток"
+        },
+        {
+          "id": "TK-4",
+          "severity": "warning",
+          "text": "У всіх рядків типу task заповнений owner: у нотатках є щонайменше одна задача, відповідального якої не назвали, і порожній owner там це знахідка, а не пропуск"
+        },
+        {
+          "id": "TK-5",
+          "severity": "warning",
+          "text": "У рядків з origin mine або ai порожня колонка note: саме ці рядки і є дифф двох версій, і без пояснення вони нічим не відрізняються від решти"
+        }
+      ]
+    },
+    {
+      "path": "lr17_ai_assistant/prompts.csv",
+      "work": "ЛР17",
+      "title": "Журнал промптів за семестр",
+      "key": "run_id",
+      "min_rows": 6,
+      "columns": [
+        {
+          "name": "run_id",
+          "type": "id",
+          "pattern": "^P-\\d{2}$",
+          "required": true,
+          "unique": true,
+          "description": "Ключ запуску"
+        },
+        {
+          "name": "date",
+          "type": "date",
+          "required": true,
+          "description": "Дата запуску"
+        },
+        {
+          "name": "tool",
+          "type": "text",
+          "required": true,
+          "description": "Інструмент і, якщо відома, модель"
+        },
+        {
+          "name": "goal",
+          "type": "text",
+          "required": true,
+          "description": "Що просили зробити"
+        },
+        {
+          "name": "artifact",
+          "type": "text",
+          "required": true,
+          "description": "Файл портфеля, куди пішов результат"
+        },
+        {
+          "name": "has_input",
+          "type": "enum",
+          "enum": "yes_no",
+          "required": true,
+          "description": "Чи були у промпті вхідні дані, а не сам опис задачі"
+        },
+        {
+          "name": "iterations",
+          "type": "int",
+          "required": true,
+          "min": 1,
+          "description": "Скільки разів уточнювали промпт"
+        },
+        {
+          "name": "result",
+          "type": "enum",
+          "enum": "prompt_result",
+          "required": true,
+          "description": "Що зробили з відповіддю"
+        },
+        {
+          "name": "note",
+          "type": "text",
+          "required": false,
+          "description": "Що саме довелось правити"
+        }
+      ],
+      "rules": [
+        {
+          "id": "PR-1",
+          "severity": "error",
+          "text": "Щонайменше три рядки мають has_input yes: промпт без вхідних даних це запрошення до фантазії"
+        },
+        {
+          "id": "PR-2",
+          "severity": "error",
+          "text": "Щонайменше один рядок має iterations від 2: перша відповідь це чернетка для уточнення, а не результат"
+        },
+        {
+          "id": "PR-3",
+          "severity": "error",
+          "text": "Щонайменше два різні значення artifact: журнал з одного файла це не журнал за семестр"
+        },
+        {
+          "id": "PR-4",
+          "severity": "warning",
+          "text": "У всіх рядків result дорівнює used: журнал, у якому жодну відповідь не правили і не відкинули, описує не роботу, а бажаний результат"
+        },
+        {
+          "id": "PR-5",
+          "severity": "warning",
+          "text": "Усі рядки мають одну дату: журнал за семестр, зібраний за один вечір, відновлений з пам'яті"
+        },
+        {
+          "id": "PR-6",
+          "severity": "error",
+          "text": "Щонайменше три значення artifact це шлях до файла портфеля, тобто містять «/» і розширення .csv або .md: журнал називає файли, а не теми розмови"
+        }
+      ]
+    },
+    {
+      "path": "lr17_ai_assistant/errors.csv",
+      "work": "ЛР17",
+      "title": "Помилки інструмента і те, як їх помітили",
+      "key": "error_id",
+      "min_rows": 3,
+      "columns": [
+        {
+          "name": "error_id",
+          "type": "id",
+          "pattern": "^ER-\\d{2}$",
+          "required": true,
+          "unique": true,
+          "description": "Ключ помилки"
+        },
+        {
+          "name": "run_id",
+          "type": "id",
+          "ref": "lr17_ai_assistant/prompts.csv:run_id",
+          "required": true,
+          "description": "Запуск із журналу промптів, у якому помилка сталась"
+        },
+        {
+          "name": "error_type",
+          "type": "enum",
+          "enum": "ai_error_type",
+          "required": true,
+          "description": "Тип помилки"
+        },
+        {
+          "name": "what_ai_said",
+          "type": "text",
+          "required": true,
+          "description": "Що саме видав інструмент, цитатою або близько до тексту"
+        },
+        {
+          "name": "why_wrong",
+          "type": "text",
+          "required": true,
+          "description": "Чим це неправда або чого в ньому бракує"
+        },
+        {
+          "name": "how_noticed",
+          "type": "text",
+          "required": true,
+          "description": "З чим звірили: файл портфеля, тег рядка нотаток або посилання"
+        },
+        {
+          "name": "fix",
+          "type": "text",
+          "required": true,
+          "description": "Що поставили замість"
+        }
+      ],
+      "rules": [
+        {
+          "id": "ER-1",
+          "severity": "error",
+          "text": "Щонайменше два різні значення error_type: перелік з однієї помилки, повтореної тричі, не показує меж інструмента"
+        },
+        {
+          "id": "ER-2",
+          "severity": "error",
+          "text": "how_noticed називає джерело звірки: ім'я файла з розширенням, тег рядка нотаток формату N-NN або посилання. «Побачив, що не так» це не спосіб помітити"
+        },
+        {
+          "id": "ER-3",
+          "severity": "warning",
+          "text": "Усі рядки посилаються на один run_id: одна невдала спроба це не перелік помилок інструмента"
+        }
+      ]
+    },
+    {
+      "path": "lr17_ai_assistant/time_saved.csv",
+      "work": "ЛР17",
+      "title": "Заощаджений час із способом підрахунку",
+      "key": "case_id",
+      "min_rows": 3,
+      "columns": [
+        {
+          "name": "case_id",
+          "type": "id",
+          "pattern": "^TS-\\d{2}$",
+          "required": true,
+          "unique": true,
+          "description": "Ключ випадку"
+        },
+        {
+          "name": "task",
+          "type": "text",
+          "required": true,
+          "description": "Яка саме робота"
+        },
+        {
+          "name": "basis",
+          "type": "enum",
+          "enum": "time_basis",
+          "required": true,
+          "description": "Заміряно чи оцінено"
+        },
+        {
+          "name": "minutes_manual",
+          "type": "int",
+          "required": true,
+          "min": 1,
+          "description": "Скільки ця робота займає руками, хвилин"
+        },
+        {
+          "name": "minutes_ai",
+          "type": "int",
+          "required": true,
+          "min": 0,
+          "description": "Скільки зайняли промпт і генерація, хвилин"
+        },
+        {
+          "name": "minutes_review",
+          "type": "int",
+          "required": true,
+          "min": 0,
+          "description": "Скільки зайняла перевірка результату, хвилин"
+        },
+        {
+          "name": "minutes_saved",
+          "type": "int",
+          "required": true,
+          "description": "Різниця, може бути від'ємною"
+        },
+        {
+          "name": "how_measured",
+          "type": "text",
+          "required": true,
+          "description": "Звідки взяті числа"
+        }
+      ],
+      "rules": [
+        {
+          "id": "TS-1",
+          "severity": "error",
+          "text": "minutes_saved дорівнює minutes_manual мінус minutes_ai мінус minutes_review"
+        },
+        {
+          "id": "TS-2",
+          "severity": "error",
+          "text": "Щонайменше один рядок має basis measured: сьогоднішні запуски ви робили з годинником, і хоча б один випадок у переліку заміряний, а не пригаданий"
+        },
+        {
+          "id": "TS-3",
+          "severity": "error",
+          "text": "minutes_review більший за нуль у кожному рядку: результат, який ніхто не перевіряв, не заощаджує час, а переносить ризик далі"
+        },
+        {
+          "id": "TS-4",
+          "severity": "warning",
+          "text": "minutes_saved додатний у всіх рядках: за семестр буває і навпаки, і випадок, де перевірка з'їла виграш, у переліку цінніший за решту"
+        }
+      ]
+    },
+    {
+      "path": "lr17_ai_assistant/policy.csv",
+      "work": "ЛР17",
+      "title": "Правило роботи з AI на власному проєкті",
+      "key": "rule_id",
+      "min_rows": 6,
+      "columns": [
+        {
+          "name": "rule_id",
+          "type": "id",
+          "pattern": "^PL-\\d{2}$",
+          "required": true,
+          "unique": true,
+          "description": "Ключ правила"
+        },
+        {
+          "name": "case",
+          "type": "text",
+          "required": true,
+          "description": "Яка робота або який тип даних"
+        },
+        {
+          "name": "mode",
+          "type": "enum",
+          "enum": "ai_mode",
+          "required": true,
+          "description": "Режим: робить сам, дає чернетку під рев'ю, не робить"
+        },
+        {
+          "name": "owner",
+          "type": "text",
+          "required": true,
+          "description": "Хто підписується під результатом"
+        },
+        {
+          "name": "check",
+          "type": "text",
+          "required": true,
+          "description": "Чим результат перевіряється до використання"
+        },
+        {
+          "name": "why",
+          "type": "text",
+          "required": true,
+          "description": "Чому саме такий режим"
+        }
+      ],
+      "rules": [
+        {
+          "id": "PL-1",
+          "severity": "error",
+          "text": "Щонайменше два рядки forbidden і щонайменше два draft: правило, у якому дозволено все, не є правилом"
+        },
+        {
+          "id": "PL-2",
+          "severity": "error",
+          "text": "Щонайменше в одного рядка case називає файл вашого портфеля, тобто містить .csv або .md: правило пишеться під власний проєкт, а не взагалі"
+        },
+        {
+          "id": "PL-3",
+          "severity": "warning",
+          "text": "Жоден рядок не стосується даних, які не можна віддавати зовнішній моделі: у case немає ні «персональн», ні «конфіденц», ні «NDA»"
+        },
+        {
+          "id": "PL-4",
+          "severity": "error",
+          "text": "Щонайменше один рядок з режимом autonomous: політика, у якій інструмент не робить нічого сам, описує не роботу з ним, а відмову від нього"
+        }
+      ]
     }
   ],
   "cross_file_rules": [
@@ -2359,6 +2804,21 @@
       "id": "X-21",
       "severity": "warning",
       "text": "actual_points у lr16_budget/plan_fact.csv збігається з points_done відповідного спринта lr09_forecast/velocity.csv"
+    },
+    {
+      "id": "X-22",
+      "severity": "error",
+      "text": "Кожен source_line у lr17_ai_assistant/tasks.csv є тегом рядка у lr17_ai_assistant/input_notes.md: пункт, якого в нотатках немає, це не розбір нотаток"
+    },
+    {
+      "id": "X-23",
+      "severity": "warning",
+      "text": "Кожен artifact у lr17_ai_assistant/prompts.csv це шлях до файла, і цей файл існує у вашому репозиторії"
+    },
+    {
+      "id": "X-24",
+      "severity": "warning",
+      "text": "Щонайменше три рядки lr17_ai_assistant/prompts.csv мають artifact поза папкою lr17_ai_assistant: журнал за семестр, у якому всі запуски зроблені в останній роботі"
     }
   ],
   "markdown_artifacts": [
@@ -2516,10 +2976,18 @@
       "skeleton": "tools/skeletons/lr16_budget_README.md"
     },
     {
+      "path": "lr17_ai_assistant/input_notes.md",
+      "work": "ЛР17",
+      "title": "Нотатки зустрічі, з якими ви працювали",
+      "hint": "Дослівна копія розділу вашої теми з lr17_meeting_notes.md разом із тегами рядків.",
+      "skeleton": "tools/skeletons/lr17_input_notes.md"
+    },
+    {
       "path": "lr17_ai_assistant/README.md",
       "work": "ЛР17",
       "title": "AI-асистент PM і межі інструмента",
-      "hint": "Що автоматизували, промпти, і головне: де інструмент помилявся і як це виявили."
+      "hint": "Що автоматизували і що показало порівняння двох версій одного документа, чому саме такі межі в правилі роботи з AI, і повний текст трьох промптів роботи.",
+      "skeleton": "tools/skeletons/lr17_ai_assistant_README.md"
     },
     {
       "path": "lr18_closure/closure_report.md",

@@ -40,6 +40,7 @@ NUMBER_RE = re.compile(r'^-?\d+(\.\d+)?$')
 SOURCE_REF_RE = re.compile(r'\[(SRC-\d{2})\]')
 VERSION_RE = re.compile(r'(\d+\.\d+\.\d+)')
 DIGIT_RE = re.compile(r'\d')
+PERCENT_RE = re.compile(r'(\d+(?:[.,]\d+)?)\s*(?:%|відсот)')
 
 TEAM_OWNER_WORDS = {'команда', 'вся команда', 'всі', 'все', 'усі', 'team', 'all'}
 
@@ -1546,9 +1547,10 @@ def rule_bg_2(table, tables, report, rule):
 
 def rule_bg_3(table, tables, report, rule):
     count = sum(1 for v in table.col('category') if v == 'management_reserve')
-    if count > 1:
+    if count != 1:
         report.add(rule['severity'], table.path, 1, rule['id'],
-                   'рядків категорії management_reserve %d, а дозволено не більше одного' % count)
+                   'рядків категорії management_reserve %d, а має бути рівно один: '
+                   'резерв на невідоме це окремий блок рубрики' % count)
 
 
 def rule_bg_5(table, tables, report, rule):
@@ -1556,6 +1558,129 @@ def rule_bg_5(table, tables, report, rule):
     if count < 2:
         report.add(rule['severity'], table.path, 1, rule['id'],
                    'рядків категорії labor %d: кошторис однієї ролі це не кошторис команди' % count)
+
+
+def rule_bg_6(table, tables, report, rule):
+    for idx, row in enumerate(table.rows):
+        if table.cell(row, 'category') != 'labor':
+            continue
+        hours = table.cell(row, 'hours')
+        rate = table.cell(row, 'rate')
+        if not hours or not rate:
+            report.add(rule['severity'], table.path, table.line(idx), rule['id'],
+                       'у трудового рядка заповнена не вся пара hours і rate: рядок з однією '
+                       'сумою обходить і звірку добутку, і звірку з прайсом')
+
+
+def rule_bg_7(table, tables, report, rule):
+    direct = ('tools', 'infrastructure', 'other')
+    if not any(v in direct for v in table.col('category')):
+        report.add(rule['severity'], table.path, 1, rule['id'],
+                   'у кошторисі немає жодного рядка нетрудових прямих витрат: ліцензії, хмара '
+                   'і середовища коштують грошей на будь-якому проєкті')
+
+
+def rule_rt_1(table, tables, report, rule):
+    rates = set(table.cell(row, 'rate') for row in table.rows if table.cell(row, 'rate'))
+    if len(rates) < 2:
+        report.add(rule['severity'], table.path, 1, rule['id'],
+                   'усі ролі коштують однаково: прайс, у якому PM і Dev мають ту саму ставку, '
+                   'не є rate card')
+
+
+def rule_rt_2(table, tables, report, rule):
+    hours = sum(num(table.cell(row, 'hours')) for row in table.rows)
+    money = sum(num(table.cell(row, 'hours')) * num(table.cell(row, 'rate'))
+                for row in table.rows)
+    if hours <= 0:
+        return
+    blended = money / hours
+    if blended < 400 or blended > 600:
+        report.add(rule['severity'], table.path, 1, rule['id'],
+                   'blended rate %.0f грн за годину, а таблиця варіантів тримає його '
+                   'від 400 до 600: перерахуйте ставки під бюджет свого варіанта' % blended)
+
+
+def rule_rt_3(table, tables, report, rule):
+    if not any('http' in table.cell(row, 'source') for row in table.rows):
+        report.add(rule['severity'], table.path, 1, rule['id'],
+                   'у жодному рядку немає посилання на огляд зарплат: ставка без джерела '
+                   'це ставка зі стелі')
+
+
+def _pf_pair(table, row):
+    return (num(table.cell(row, 'planned_points')),
+            num(table.cell(row, 'actual_points')),
+            num(table.cell(row, 'planned_cost_per_point')),
+            num(table.cell(row, 'actual_cost_per_point')))
+
+
+def rule_pf_1(table, tables, report, rule):
+    for idx, row in enumerate(table.rows):
+        pp, ap, pc, ac = _pf_pair(table, row)
+        if min(pp, ap, pc, ac) <= 0:
+            continue
+        planned, actual = pp * pc, ap * ac
+        if abs(planned - actual) > planned * 0.01:
+            report.add(rule['severity'], table.path, table.line(idx), rule['id'],
+                       'план дає вартість спринта %.0f грн, а факт %.0f: обидва добутки це '
+                       'вартість того самого спринта і мають збігатися' % (planned, actual))
+
+
+def rule_pf_2(table, tables, report, rule):
+    for idx, row in enumerate(table.rows):
+        pp, ap, pc, ac = _pf_pair(table, row)
+        stated = table.cell(row, 'variance_pct')
+        if pc <= 0 or not NUMBER_RE.match(stated):
+            continue
+        expected = (ac - pc) / pc * 100
+        if abs(expected - float(stated)) > 0.5:
+            report.add(rule['severity'], table.path, table.line(idx), rule['id'],
+                       'відхилення за формулою %.1f відсотка, а в variance_pct стоїть %s'
+                       % (expected, stated))
+
+
+def rule_pf_3(table, tables, report, rule):
+    planned = set(table.cell(row, 'planned_cost_per_point') for row in table.rows
+                  if table.cell(row, 'planned_cost_per_point'))
+    if len(planned) > 1:
+        report.add(rule['severity'], table.path, 1, rule['id'],
+                   'планова ціна points різна в спринтах (%s): вона береться з варіанта '
+                   'і між спринтами не змінюється' % ', '.join(sorted(planned)))
+
+
+def rule_pf_4(table, tables, report, rule):
+    if not table.rows:
+        return
+    same = all(num(table.cell(row, 'planned_points')) == num(table.cell(row, 'actual_points'))
+               for row in table.rows)
+    if same:
+        report.add(rule['severity'], table.path, 1, rule['id'],
+                   'факт дорівнює плану в обох спринтах: так буває, але частіше це числа, '
+                   'підігнані під нульове відхилення')
+
+
+def rule_bg_4(table, tables, report, rule):
+    row = next((r for r in table.rows if table.cell(r, 'category') == 'contingency'), None)
+    if row is None:
+        return
+    line = table.line(table.rows.index(row))
+    percent = PERCENT_RE.search(table.cell(row, 'note'))
+    if not percent:
+        report.add(rule['severity'], table.path, line, rule['id'],
+                   'у note рядка contingency немає відсотка: без нього суму резерву '
+                   'неможливо перевірити')
+        return
+    direct = sum(num(table.cell(r, 'amount')) for r in table.rows
+                 if table.cell(r, 'category') not in ('contingency', 'management_reserve'))
+    if direct <= 0:
+        return
+    expected = direct * float(percent.group(1).replace(',', '.')) / 100
+    actual = num(table.cell(row, 'amount'))
+    if abs(expected - actual) > max(expected * 0.01, 1):
+        report.add(rule['severity'], table.path, line, rule['id'],
+                   'названий відсоток дає %.0f грн від прямих витрат %.0f, а в amount стоїть %.0f'
+                   % (expected, direct, actual))
 
 
 FILE_RULES = {
@@ -1589,7 +1714,10 @@ FILE_RULES = {
     'DB-1': rule_db_1, 'DB-2': rule_db_2, 'DB-3': rule_db_3,
     'DB-4': rule_db_4, 'DB-5': rule_db_5,
     'IM-1': rule_im_1, 'IM-2': rule_im_2, 'IM-3': rule_im_3, 'IM-4': rule_im_4,
-    'BG-1': rule_bg_1, 'BG-2': rule_bg_2, 'BG-3': rule_bg_3, 'BG-5': rule_bg_5,
+    'BG-1': rule_bg_1, 'BG-2': rule_bg_2, 'BG-3': rule_bg_3, 'BG-4': rule_bg_4,
+    'BG-5': rule_bg_5, 'BG-6': rule_bg_6, 'BG-7': rule_bg_7,
+    'RT-1': rule_rt_1, 'RT-2': rule_rt_2, 'RT-3': rule_rt_3,
+    'PF-1': rule_pf_1, 'PF-2': rule_pf_2, 'PF-3': rule_pf_3, 'PF-4': rule_pf_4,
 }
 
 # Правила, які покриті перевіркою посилань або іншим правилом.
@@ -1944,11 +2072,68 @@ def cross_x18(root, tables, report, rule):
                    % (decision, logged))
 
 
+def cross_x19(root, tables, report, rule):
+    budget = tables.get('lr16_budget/budget.csv')
+    card = tables.get('lr16_budget/rate_card.csv')
+    if not filled(budget) or not filled(card):
+        return
+    known = set()
+    for row in card.rows:
+        value = card.cell(row, 'rate')
+        if NUMBER_RE.match(value):
+            known.add(round(float(value), 2))
+    for idx, row in enumerate(budget.rows):
+        if budget.cell(row, 'category') != 'labor':
+            continue
+        value = budget.cell(row, 'rate')
+        if not NUMBER_RE.match(value):
+            continue
+        if round(float(value), 2) not in known:
+            report.add(rule['severity'], 'lr16_budget/budget.csv', budget.line(idx), rule['id'],
+                       'ставки %s немає в rate_card.csv: кошторис рахується за прайсом, '
+                       'а не поруч із ним' % value)
+
+
+def cross_x20(root, tables, report, rule):
+    budget = tables.get('lr16_budget/budget.csv')
+    card = tables.get('lr16_budget/rate_card.csv')
+    if not filled(budget) or not filled(card):
+        return
+    labor = sum(num(budget.cell(row, 'hours')) for row in budget.rows
+                if budget.cell(row, 'category') == 'labor')
+    planned = sum(num(card.cell(row, 'hours')) for row in card.rows)
+    if planned and abs(labor - planned) > planned * 0.15:
+        report.add(rule['severity'], 'lr16_budget/budget.csv', 1, rule['id'],
+                   'годин labor у кошторисі %s, а в rate card %s: розбіжність більша '
+                   'за 15 відсотків' % (labor, planned))
+
+
+def cross_x21(root, tables, report, rule):
+    fact = tables.get('lr16_budget/plan_fact.csv')
+    velocity = tables.get('lr09_forecast/velocity.csv')
+    if not filled(fact) or not filled(velocity):
+        return
+    done = {}
+    for row in velocity.rows:
+        sprint = velocity.cell(row, 'sprint')
+        if sprint:
+            done[sprint] = num(velocity.cell(row, 'points_done'))
+    for idx, row in enumerate(fact.rows):
+        sprint = fact.cell(row, 'sprint')
+        if sprint not in done:
+            continue
+        if abs(num(fact.cell(row, 'actual_points')) - done[sprint]) > 0.01:
+            report.add(rule['severity'], 'lr16_budget/plan_fact.csv', fact.line(idx), rule['id'],
+                       'за спринт %s у velocity.csv закрито %s points, а тут стоїть %s'
+                       % (sprint, done[sprint], fact.cell(row, 'actual_points')))
+
+
 CROSS_RULES = {'X-4': cross_x4, 'X-5': cross_x5, 'X-6': cross_x6, 'X-7': cross_x7, 'X-8': cross_x8,
                'X-9': cross_x9, 'X-10': cross_x10,
                'X-11': cross_x11, 'X-12': cross_x12,
                'X-13': cross_x13, 'X-14': cross_x14, 'X-15': cross_x15,
-               'X-16': cross_x16, 'X-17': cross_x17, 'X-18': cross_x18}
+               'X-16': cross_x16, 'X-17': cross_x17, 'X-18': cross_x18,
+               'X-19': cross_x19, 'X-20': cross_x20, 'X-21': cross_x21}
 # X-1 і X-2 покриті перевіркою посилань колонок, X-3 порахований правилом FC-2.
 CROSS_COVERED = {'X-1', 'X-2', 'X-3'}
 
@@ -1968,6 +2153,9 @@ CROSS_SCOPE = {
     'X-16': ('lr14_metrics', 'lr15_status_report'),
     'X-17': ('lr14_metrics', 'lr15_status_report'),
     'X-18': ('lr11_risks_quality', 'lr15_status_report'),
+    'X-19': ('lr16_budget',),
+    'X-20': ('lr16_budget',),
+    'X-21': ('lr16_budget', 'lr09_forecast'),
 }
 
 

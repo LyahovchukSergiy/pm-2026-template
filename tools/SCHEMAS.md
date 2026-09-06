@@ -1,6 +1,6 @@
 # Схеми артефактів курсу «Управління ІТ проєктами»
 
-Згенеровано з `tools/schemas.json`, версія схеми **1.13.0**, оновлено 2026-09-06.
+Згенеровано з `tools/schemas.json`, версія схеми **1.15.0**, оновлено 2026-09-06.
 
 Файл не редагується руками: правиться спека, далі запускається
 `python3 tools/generate_schema_docs.py`.
@@ -84,7 +84,9 @@
 | ЛР14 | `lr14_metrics/findings.csv` | `finding_id` | 6 |
 | ЛР14 | `lr14_metrics/dashboard.csv` | `metric_id` | 3 |
 | ЛР15 | `lr15_status_report/impact.csv` | `dimension` | 5 |
+| ЛР16 | `lr16_budget/rate_card.csv` | `role` | 3 |
 | ЛР16 | `lr16_budget/budget.csv` | `line_id` | 6 |
+| ЛР16 | `lr16_budget/plan_fact.csv` | `sprint` | 2 |
 
 ## Карта залежностей портфеля
 
@@ -116,7 +118,9 @@ flowchart LR
   lr14_metrics_findings_csv["ЛР14<br/>lr14_metrics/findings.csv"]
   lr14_metrics_dashboard_csv["ЛР14<br/>lr14_metrics/dashboard.csv"]
   lr15_status_report_impact_csv["ЛР15<br/>lr15_status_report/impact.csv"]
+  lr16_budget_rate_card_csv["ЛР16<br/>lr16_budget/rate_card.csv"]
   lr16_budget_budget_csv["ЛР16<br/>lr16_budget/budget.csv"]
+  lr16_budget_plan_fact_csv["ЛР16<br/>lr16_budget/plan_fact.csv"]
   lr01_case_README_md["ЛР1<br/>lr01_case/README.md"]
   lr15_status_report_README_md["ЛР15<br/>lr15_status_report/README.md"]
   lr15_status_report_change_request_md["ЛР15<br/>lr15_status_report/change_request.md"]
@@ -140,9 +144,11 @@ flowchart LR
   lr07_wbs_wbs_csv -.->|X-4| lr16_budget_budget_csv
   lr08_poker_estimates_csv -.->|X-3| lr09_forecast_forecast_csv
   lr09_forecast_velocity_csv -.->|X-15| lr11_risks_quality_risks_csv
+  lr09_forecast_velocity_csv -.->|X-21| lr16_budget_plan_fact_csv
   lr11_risks_quality_changelog_csv -.->|X-18| lr15_status_report_change_request_md
   lr14_metrics_dashboard_csv -.->|X-17| lr15_status_report_README_md
   lr14_metrics_dashboard_csv -.->|X-16| lr15_status_report_impact_csv
+  lr16_budget_rate_card_csv -.->|X-19, X-20| lr16_budget_budget_csv
 ```
 
 Файли без стрілок теж обов'язкові: вони просто не мають спільних
@@ -758,6 +764,31 @@ dimension,before,after,delta,risk_ids,source_file,note
 - `IM-3` (error): Щонайменше в трьох рядках before і after різні: зміна, після якої в портфелі нічого не рухається, зміною не є
 - `IM-4` (warning): delta не є оцінним словом без числа на кшталт незначний, суттєвий або мінімальний
 
+### Rate card за ролями вашого варіанта, `lr16_budget/rate_card.csv`
+
+Робота ЛР16. Ключ: `role`. Мінімум рядків: 3.
+
+| Колонка | Тип | Обов'язкова | Обмеження | Опис |
+| --- | --- | :-: | --- | --- |
+| `role` | текст | так | унікальне | Роль зі складу команди вашого варіанта: PM, BA, Dev, QA, UX, DevOps |
+| `fte` | число | так | не менше 0.01 | Сумарна зайнятість ролі у варіанті в частках повного дня: два Dev по 100 і 50 відсотків дають 1.5 |
+| `hours` | число | так | не менше 1 | Години ролі за строк варіанта: fte × тижні × 40 |
+| `rate` | число | так | не менше 1 | Ставка години в гривнях |
+| `source` | текст | так |  | Звідки взяте співвідношення ставок: посилання на відкритий огляд зарплат або на розділ README |
+| `note` | текст | ні |  | Одне речення: чим ця роль відрізняється від сусідніх за ставкою |
+
+Рядок заголовків:
+
+```
+role,fte,hours,rate,source,note
+```
+
+Правила файла:
+
+- `RT-1` (error): Ставки різних ролей не однакові: прайс, у якому PM і Dev коштують однаково, це не rate card
+- `RT-2` (error): Blended rate, тобто сума hours × rate поділена на суму hours, лежить від 400 до 600 гривень включно: верхня межа це стеля вилки варіантів, а власну стелю дає бюджет варіанта, поділений на стелю годин
+- `RT-3` (warning): Щонайменше в одному рядку source містить посилання http: ставка без джерела це ставка зі стелі
+
 ### Кошторис проєкту, `lr16_budget/budget.csv`
 
 Робота ЛР16. Ключ: `line_id`. Мінімум рядків: 6.
@@ -770,7 +801,7 @@ dimension,before,after,delta,risk_ids,source_file,note
 | `hours` | число | ні | не менше 0 | Години, порожньо для непогодинних позицій |
 | `rate` | число | ні | не менше 0 | Ставка за годину |
 | `amount` | число | так | не менше 0 | Сума рядка в валюті проєкту |
-| `note` | текст | ні |  | Пояснення, звідки взялась цифра |
+| `note` | текст | ні |  | Пояснення, звідки взялась цифра; у рядка contingency тут стоїть відсоток у форматі «12 відсотків прямих витрат» |
 
 Рядок заголовків:
 
@@ -782,9 +813,39 @@ line_id,category,role_or_item,hours,rate,amount,note
 
 - `BG-1` (error): Якщо заповнені hours і rate, amount дорівнює їх добутку з точністю до двох знаків
 - `BG-2` (error): Рівно один рядок категорії contingency
-- `BG-3` (error): Не більше одного рядка категорії management_reserve, і він не входить у baseline
-- `BG-4` (warning): Сума contingency відповідає відсотку від прямих витрат, названому в README
+- `BG-3` (error): Рівно один рядок категорії management_reserve, і він не входить у baseline
+- `BG-4` (warning): Відсоток у note рядка contingency відповідає його amount, порахованому від суми прямих витрат, тобто всіх рядків, крім двох резервів
 - `BG-5` (error): Категорія labor має щонайменше два рядки: кошторис однієї ролі це не кошторис команди
+- `BG-6` (error): У кожного рядка категорії labor заповнені і hours, і rate: трудовий рядок з однією сумою обходить і звірку добутку, і звірку з прайсом
+- `BG-7` (error): Щонайменше один рядок категорії tools, infrastructure або other: проєкт, у якому нічого, крім людей, не коштує грошей, у житті не трапляється
+
+### План проти факту за двома спринтами, `lr16_budget/plan_fact.csv`
+
+Робота ЛР16. Ключ: `sprint`. Мінімум рядків: 2.
+
+| Колонка | Тип | Обов'язкова | Обмеження | Опис |
+| --- | --- | :-: | --- | --- |
+| `sprint` | ціле число | так | унікальне; від 1 до 2 | Номер спринта, 1 або 2 |
+| `planned_points` | число | так | не менше 1 | Ємність спринта вашого варіанта |
+| `actual_points` | число | так | не менше 1 | Скільки points закрито за Definition of Done |
+| `planned_cost_per_point` | число | так | не менше 1 | Вартість спринта за планом поділена на planned_points, у гривнях |
+| `actual_cost_per_point` | число | так | не менше 1 | Та сама вартість спринта поділена на actual_points, у гривнях |
+| `variance_pct` | число | так |  | Наскільки відсотків фактична ціна points дорожча за планову, зі знаком |
+| `source_file` | текст | так |  | Файл, з якого взято actual_points |
+| `note` | текст | так |  | Одне речення: через що вийшло саме таке відхилення |
+
+Рядок заголовків:
+
+```
+sprint,planned_points,actual_points,planned_cost_per_point,actual_cost_per_point,variance_pct,source_file,note
+```
+
+Правила файла:
+
+- `PF-1` (error): planned_cost_per_point × planned_points дорівнює actual_cost_per_point × actual_points з точністю до одного відсотка: обидва добутки це вартість того самого спринта, і команда коштує стільки ж незалежно від того, скільки закрила
+- `PF-2` (error): variance_pct дорівнює (actual_cost_per_point − planned_cost_per_point) поділити на planned_cost_per_point і на 100, з точністю до 0.5
+- `PF-3` (error): planned_cost_per_point однаковий в обох рядках: план береться з варіанта і між спринтами не змінюється
+- `PF-4` (warning): В обох спринтах actual_points дорівнює planned_points: план, який збігся двічі підряд, буває, але частіше це числа, підігнані під нуль відхилення
 
 ## Наскрізні правила
 
@@ -808,6 +869,9 @@ line_id,category,role_or_item,hours,rate,amount,note
 | `X-16` | error | Кожен source_file у lr14_metrics/dashboard.csv і lr15_status_report/impact.csv це шлях до файла, який існує і має рядки: метрика з порожньої заготовки шаблону рахується нізвідки |
 | `X-17` | error | У lr15_status_report/README.md названо щонайменше три метрики формату MT-NN, і кожна з них існує в lr14_metrics/dashboard.csv: статус-звіт стоїть на числах дашборда |
 | `X-18` | error | Рішення в lr15_status_report/change_request.md збігається з рішенням рядка course_event у lr11_risks_quality/changelog.csv: approve це accepted, reject це rejected, defer це deferred |
+| `X-19` | error | Кожна ставка rate трудового рядка lr16_budget/budget.csv є в колонці rate файла lr16_budget/rate_card.csv: кошторис рахується за прайсом, а не поруч із ним |
+| `X-20` | error | Сума hours категорії labor у lr16_budget/budget.csv відрізняється від суми hours у lr16_budget/rate_card.csv не більше ніж на 15 відсотків |
+| `X-21` | warning | actual_points у lr16_budget/plan_fact.csv збігається з points_done відповідного спринта lr09_forecast/velocity.csv |
 
 ## Артефакти у Markdown
 
@@ -834,7 +898,7 @@ line_id,category,role_or_item,hours,rate,amount,note
 | ЛР14 | `lr14_metrics/README.md` | Головні знахідки за еталонними даними курсу, висновок DORA, власні числа потоку (перцентилі cycle time і throughput), пояснення складу дашборда і метрика, яку найлегше накрутити. |
 | ЛР15 | `lr15_status_report/README.md` | Звіт на одну сторінку за структурою курсу: RAG-статус із критерієм, головне трьома реченнями, топ-3 ризики, три числа з дашборда і те, якого рішення ви просите в стейкхолдера. |
 | ЛР15 | `lr15_status_report/change_request.md` | Що просить замовник, варіанти дій, рішення approve, reject або defer і три речення для замовника. Числа впливу лежать поруч в impact.csv. |
-| ЛР16 | `lr16_budget/README.md` | Валюта проєкту, відсоток contingency і звідки він узявся, порівняння Fixed Price проти Time and Material і обрана модель. |
+| ЛР16 | `lr16_budget/README.md` | Rate card і звідки взяті ставки, відсоток contingency, різниця між двома резервами, порівняння Fixed Price проти Time and Material у гривнях, обрана модель з її недоліком і прогноз до завершення за фактичним темпом. |
 | ЛР17 | `lr17_ai_assistant/README.md` | Що автоматизували, промпти, і головне: де інструмент помилявся і як це виявили. |
 | ЛР18 | `lr18_closure/closure_report.md` | Що прийнято, що не завершено, як передається продукт, яка цінність отримана, lessons learned. Здається в репозиторій до пари захисту. |
 

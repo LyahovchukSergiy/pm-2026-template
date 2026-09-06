@@ -1,7 +1,7 @@
 # Портфель проєкту
 
 Стартовий шаблон репозиторію курсу «Управління ІТ проєктами», 2026.
-Версія схеми артефактів: **1.13.0** (звіряється з `tools/SCHEMAS.md` курсу).
+Версія схеми артефактів: **1.15.0** (звіряється з `tools/SCHEMAS.md` курсу).
 
 ## Картка студента
 
@@ -42,7 +42,7 @@ lr12_communication/      raci.csv + communication.csv
 lr13_roleplay/           діалоги зі стейкхолдерами
 lr14_metrics/            flow.csv + аналіз
 lr15_status_report/      статус-звіт + change_request.md
-lr16_budget/             budget.csv
+lr16_budget/             rate_card.csv + budget.csv + plan_fact.csv
 lr17_ai_assistant/       автоматизація і розбір помилок інструмента
 lr18_closure/            closure_report.md до пари захисту
 ```

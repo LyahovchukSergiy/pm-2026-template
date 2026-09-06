@@ -1,5 +1,5 @@
 {
-  "schema_version": "1.13.0",
+  "schema_version": "1.15.0",
   "updated": "2026-09-06",
   "course": "Управління ІТ проєктами, 2026",
   "note": "Джерело правди для схем артефактів. Валідатор, умови робіт і шаблон репозиторію студента беруть колонки звідси. Правити тільки тут, далі перегенерувати SCHEMAS.md і шаблони.",
@@ -2008,6 +2008,72 @@
       ]
     },
     {
+      "path": "lr16_budget/rate_card.csv",
+      "work": "ЛР16",
+      "title": "Rate card за ролями вашого варіанта",
+      "key": "role",
+      "min_rows": 3,
+      "columns": [
+        {
+          "name": "role",
+          "type": "text",
+          "required": true,
+          "unique": true,
+          "description": "Роль зі складу команди вашого варіанта: PM, BA, Dev, QA, UX, DevOps"
+        },
+        {
+          "name": "fte",
+          "type": "number",
+          "required": true,
+          "min": 0.01,
+          "description": "Сумарна зайнятість ролі у варіанті в частках повного дня: два Dev по 100 і 50 відсотків дають 1.5"
+        },
+        {
+          "name": "hours",
+          "type": "number",
+          "required": true,
+          "min": 1,
+          "description": "Години ролі за строк варіанта: fte × тижні × 40"
+        },
+        {
+          "name": "rate",
+          "type": "number",
+          "required": true,
+          "min": 1,
+          "description": "Ставка години в гривнях"
+        },
+        {
+          "name": "source",
+          "type": "text",
+          "required": true,
+          "description": "Звідки взяте співвідношення ставок: посилання на відкритий огляд зарплат або на розділ README"
+        },
+        {
+          "name": "note",
+          "type": "text",
+          "required": false,
+          "description": "Одне речення: чим ця роль відрізняється від сусідніх за ставкою"
+        }
+      ],
+      "rules": [
+        {
+          "id": "RT-1",
+          "severity": "error",
+          "text": "Ставки різних ролей не однакові: прайс, у якому PM і Dev коштують однаково, це не rate card"
+        },
+        {
+          "id": "RT-2",
+          "severity": "error",
+          "text": "Blended rate, тобто сума hours × rate поділена на суму hours, лежить від 400 до 600 гривень включно: верхня межа це стеля вилки варіантів, а власну стелю дає бюджет варіанта, поділений на стелю годин"
+        },
+        {
+          "id": "RT-3",
+          "severity": "warning",
+          "text": "Щонайменше в одному рядку source містить посилання http: ставка без джерела це ставка зі стелі"
+        }
+      ]
+    },
+    {
       "path": "lr16_budget/budget.csv",
       "work": "ЛР16",
       "title": "Кошторис проєкту",
@@ -2060,7 +2126,7 @@
           "name": "note",
           "type": "text",
           "required": false,
-          "description": "Пояснення, звідки взялась цифра"
+          "description": "Пояснення, звідки взялась цифра; у рядка contingency тут стоїть відсоток у форматі «12 відсотків прямих витрат»"
         }
       ],
       "rules": [
@@ -2077,17 +2143,113 @@
         {
           "id": "BG-3",
           "severity": "error",
-          "text": "Не більше одного рядка категорії management_reserve, і він не входить у baseline"
+          "text": "Рівно один рядок категорії management_reserve, і він не входить у baseline"
         },
         {
           "id": "BG-4",
           "severity": "warning",
-          "text": "Сума contingency відповідає відсотку від прямих витрат, названому в README"
+          "text": "Відсоток у note рядка contingency відповідає його amount, порахованому від суми прямих витрат, тобто всіх рядків, крім двох резервів"
         },
         {
           "id": "BG-5",
           "severity": "error",
           "text": "Категорія labor має щонайменше два рядки: кошторис однієї ролі це не кошторис команди"
+        },
+        {
+          "id": "BG-6",
+          "severity": "error",
+          "text": "У кожного рядка категорії labor заповнені і hours, і rate: трудовий рядок з однією сумою обходить і звірку добутку, і звірку з прайсом"
+        },
+        {
+          "id": "BG-7",
+          "severity": "error",
+          "text": "Щонайменше один рядок категорії tools, infrastructure або other: проєкт, у якому нічого, крім людей, не коштує грошей, у житті не трапляється"
+        }
+      ]
+    },
+    {
+      "path": "lr16_budget/plan_fact.csv",
+      "work": "ЛР16",
+      "title": "План проти факту за двома спринтами",
+      "key": "sprint",
+      "min_rows": 2,
+      "columns": [
+        {
+          "name": "sprint",
+          "type": "int",
+          "required": true,
+          "unique": true,
+          "min": 1,
+          "max": 2,
+          "description": "Номер спринта, 1 або 2"
+        },
+        {
+          "name": "planned_points",
+          "type": "number",
+          "required": true,
+          "min": 1,
+          "description": "Ємність спринта вашого варіанта"
+        },
+        {
+          "name": "actual_points",
+          "type": "number",
+          "required": true,
+          "min": 1,
+          "description": "Скільки points закрито за Definition of Done"
+        },
+        {
+          "name": "planned_cost_per_point",
+          "type": "number",
+          "required": true,
+          "min": 1,
+          "description": "Вартість спринта за планом поділена на planned_points, у гривнях"
+        },
+        {
+          "name": "actual_cost_per_point",
+          "type": "number",
+          "required": true,
+          "min": 1,
+          "description": "Та сама вартість спринта поділена на actual_points, у гривнях"
+        },
+        {
+          "name": "variance_pct",
+          "type": "number",
+          "required": true,
+          "description": "Наскільки відсотків фактична ціна points дорожча за планову, зі знаком"
+        },
+        {
+          "name": "source_file",
+          "type": "text",
+          "required": true,
+          "description": "Файл, з якого взято actual_points"
+        },
+        {
+          "name": "note",
+          "type": "text",
+          "required": true,
+          "description": "Одне речення: через що вийшло саме таке відхилення"
+        }
+      ],
+      "rules": [
+        {
+          "id": "PF-1",
+          "severity": "error",
+          "text": "planned_cost_per_point × planned_points дорівнює actual_cost_per_point × actual_points з точністю до одного відсотка: обидва добутки це вартість того самого спринта, і команда коштує стільки ж незалежно від того, скільки закрила"
+        },
+        {
+          "id": "PF-2",
+          "severity": "error",
+          "text": "variance_pct дорівнює (actual_cost_per_point − planned_cost_per_point) поділити на planned_cost_per_point і на 100, з точністю до 0.5"
+        },
+        {
+          "id": "PF-3",
+          "severity": "error",
+          "text": "planned_cost_per_point однаковий в обох рядках: план береться з варіанта і між спринтами не змінюється"
+        },
+        {
+          "id": "PF-4",
+          "severity": "warning",
+          "text": "В обох спринтах actual_points дорівнює planned_points: план, який збігся двічі підряд, буває, але частіше це числа, підігнані під нуль відхилення"
         }
       ]
     }
@@ -2182,6 +2344,21 @@
       "id": "X-18",
       "severity": "error",
       "text": "Рішення в lr15_status_report/change_request.md збігається з рішенням рядка course_event у lr11_risks_quality/changelog.csv: approve це accepted, reject це rejected, defer це deferred"
+    },
+    {
+      "id": "X-19",
+      "severity": "error",
+      "text": "Кожна ставка rate трудового рядка lr16_budget/budget.csv є в колонці rate файла lr16_budget/rate_card.csv: кошторис рахується за прайсом, а не поруч із ним"
+    },
+    {
+      "id": "X-20",
+      "severity": "error",
+      "text": "Сума hours категорії labor у lr16_budget/budget.csv відрізняється від суми hours у lr16_budget/rate_card.csv не більше ніж на 15 відсотків"
+    },
+    {
+      "id": "X-21",
+      "severity": "warning",
+      "text": "actual_points у lr16_budget/plan_fact.csv збігається з points_done відповідного спринта lr09_forecast/velocity.csv"
     }
   ],
   "markdown_artifacts": [
@@ -2334,8 +2511,9 @@
     {
       "path": "lr16_budget/README.md",
       "work": "ЛР16",
-      "title": "Кошторис і вибір контракту",
-      "hint": "Валюта проєкту, відсоток contingency і звідки він узявся, порівняння Fixed Price проти Time and Material і обрана модель."
+      "title": "Кошторис, резерви і вибір контракту",
+      "hint": "Rate card і звідки взяті ставки, відсоток contingency, різниця між двома резервами, порівняння Fixed Price проти Time and Material у гривнях, обрана модель з її недоліком і прогноз до завершення за фактичним темпом.",
+      "skeleton": "tools/skeletons/lr16_budget_README.md"
     },
     {
       "path": "lr17_ai_assistant/README.md",

@@ -1,7 +1,7 @@
 # Портфель проєкту
 
 Стартовий шаблон репозиторію курсу «Управління ІТ проєктами», 2026.
-Версія схеми артефактів: **1.9.0** (звіряється з `tools/SCHEMAS.md` курсу).
+Версія схеми артефактів: **1.9.1** (звіряється з `tools/SCHEMAS.md` курсу).
 
 ## Картка студента
 
@@ -36,7 +36,7 @@ lr06_backlog/            backlog.csv + dor.md, беклог і Definition of Rea
 lr07_wbs/                wbs.csv + schedule.csv + roadmap.csv
 lr08_poker/              votes.csv + estimates.csv, оцінки беклогу
 lr09_forecast/           velocity.csv + forecast.csv
-lr10_demo/               review.md на чужий портфель + README.md з реакцією
+lr10_review/             review.md на чужий портфель + README.md з реакцією
 lr11_risks_quality/      risks.csv + techdebt.csv + dod.md
 lr12_communication/      raci.csv + communication.csv
 lr13_roleplay/           діалоги зі стейкхолдерами

@@ -1,6 +1,6 @@
 # Схеми артефактів курсу «Управління ІТ проєктами»
 
-Згенеровано з `tools/schemas.json`, версія схеми **1.10.0**, оновлено 2026-09-06.
+Згенеровано з `tools/schemas.json`, версія схеми **1.11.0**, оновлено 2026-09-06.
 
 Файл не редагується руками: правиться спека, далі запускається
 `python3 tools/generate_schema_docs.py`.
@@ -48,7 +48,7 @@
 - `moscow_class`: `must`, `should`, `could`, `wont`
 - `priority_method`: `moscow`, `rice`, `wsjf`
 - `pull`: `predictive`, `adaptive`, `neutral`
-- `raci_role`: `R`, `A`, `C`, `I`
+- `raci_role`: `R`, `A`, `AR`, `C`, `I`
 - `risk_category`: `technical`, `external`, `organizational`, `project_management`
 - `risk_status`: `open`, `closed`, `realized`
 - `risk_strategy`: `avoid`, `mitigate`, `transfer`, `accept`, `escalate`
@@ -119,6 +119,7 @@ flowchart LR
   lr06_backlog_backlog_csv -->|story_id| lr08_poker_estimates_csv
   lr06_backlog_backlog_csv -->|related_story_ids| lr11_risks_quality_risks_csv
   lr06_backlog_backlog_csv -->|story_ids| lr11_risks_quality_changelog_csv
+  lr07_wbs_wbs_csv -->|wbs_id| lr12_communication_raci_csv
   lr05_charter_stakeholders_csv -->|stakeholder_id| lr12_communication_raci_csv
   lr05_charter_stakeholders_csv -->|stakeholder_id| lr12_communication_communication_csv
   lr06_backlog_backlog_csv -->|story_id| lr14_metrics_flow_csv
@@ -234,6 +235,7 @@ stakeholder_id,name_or_role,organization,interest,influence,attitude,strategy,ow
 
 - `ST-1` (error): Стратегія відповідає квадранту: high/high це manage_closely, низький інтерес і високий вплив це keep_satisfied, високий інтерес і низький вплив це keep_informed, low/low це monitor
 - `ST-2` (error): Щонайменше один стейкхолдер має стратегію manage_closely
+- `ST-3` (error): Щонайменше один стейкхолдер має attitude, відмінне від supporter: проєкт, який нікому не заважає, зазвичай нікому й не потрібен
 
 ### Критерії успіху проєкту, `lr05_charter/success_criteria.csv`
 
@@ -259,7 +261,7 @@ criterion_id,criterion,metric,baseline,target,measure_how,accepted_by
 
 - `SC-1` (error): У target є число: критерій без числа не приймається жодною стороною
 - `SC-2` (error): measure_how не повторює target і називає джерело даних або момент виміру
-- `SC-3` (warning): Різних значень accepted_by щонайменше два: якщо всі критерії приймає одна людина, карта стейкхолдерів у статуті не працює
+- `SC-3` (error): Різних значень accepted_by щонайменше два: якщо всі критерії приймає одна людина, карта стейкхолдерів у статуті не працює
 
 ### Беклог продукту, `lr06_backlog/backlog.csv`
 
@@ -298,7 +300,7 @@ story_id,epic,title,as_a,i_want,so_that,acceptance_criteria,priority_method,prio
 - `BL-7` (error): Для методу moscow priority_score це must, should, could або wont, і історія з класом wont не входить у перший реліз
 - `BL-8` (warning): Жодна історія поза першим релізом не стоїть у черзі вище за історію першого релізу
 - `BL-9` (warning): Для методу moscow частка must серед історій першого релізу не перевищує 60 відсотків
-- `BL-10` (warning): Різних епіків у беклозі щонайменше три
+- `BL-10` (error): Різних епіків у беклозі щонайменше три
 - `BL-11` (warning): Жодна історія першого релізу не має final_estimate 21 в estimates.csv: історія на цілий спринт це епік
 
 ### WBS проєкту, `lr07_wbs/wbs.csv`
@@ -575,7 +577,7 @@ change_id,date,source,description,story_ids,points_delta,decision,rationale,affe
 
 - `CH-1` (error): Щонайменше один рядок має source course_event: подія курсу відпрацьована в журналі
 - `CH-2` (error): У рядка з рішенням accepted заповнені points_delta і affected_files: прийнята зміна міняє числа і файли портфеля
-- `CH-3` (warning): У рядка з рішенням accepted заповнений story_ids: зміна обсягу, яка не торкнулась жодної історії, обсягу не змінила
+- `CH-3` (error): У рядка з рішенням accepted заповнений story_ids: зміна обсягу, яка не торкнулась жодної історії, обсягу не змінила
 
 ### Матриця RACI у довгому форматі, `lr12_communication/raci.csv`
 
@@ -585,22 +587,27 @@ change_id,date,source,description,story_ids,points_delta,decision,rationale,affe
 | --- | --- | :-: | --- | --- |
 | `activity_id` | ідентифікатор | так | формат `^A-\d{2}$` | Ключ активності, повторюється в рядках однієї активності |
 | `activity` | текст | так |  | Назва активності, однакова для всіх рядків одного activity_id |
+| `wbs_id` | ідентифікатор | ні | посилання на `lr07_wbs/wbs.csv:wbs_id` | Пакет робіт з WBS, до якого належить активність. Порожньо в активностей-рішень, яких у плані немає окремим вузлом |
 | `stakeholder_id` | ідентифікатор | так | посилання на `lr05_charter/stakeholders.csv:stakeholder_id` | Учасник з карти стейкхолдерів |
-| `role` | значення зі словника | так | одне з: `R`, `A`, `C`, `I` | Роль у цій активності |
+| `role` | значення зі словника | так | одне з: `R`, `A`, `AR`, `C`, `I` | Роль у цій активності. AR це та сама сторона, яка і виконує, і відповідає за результат |
 
 Рядок заголовків:
 
 ```
-activity_id,activity,stakeholder_id,role
+activity_id,activity,wbs_id,stakeholder_id,role
 ```
 
 Правила файла:
 
 - `RC-1` (error): Пара activity_id і stakeholder_id унікальна
-- `RC-2` (error): Рівно одна роль A на кожну активність
-- `RC-3` (error): Щонайменше одна роль R на кожну активність
+- `RC-2` (error): Рівно одна роль A на кожну активність, і AR рахується тут як A
+- `RC-3` (error): Щонайменше одна роль R на кожну активність, і AR рахується тут як R
 - `RC-4` (error): Текст activity однаковий у всіх рядках одного activity_id
-- `RC-5` (warning): Активностей щонайменше шість, широку таблицю для людей видно в README
+- `RC-5` (warning): Активностей щонайменше шість, тобто чотири з вузлом плану і дві без нього, широку таблицю для людей видно в README
+- `RC-6` (error): Значення wbs_id однакове в усіх рядках одного activity_id
+- `RC-7` (error): Щонайменше чотири активності посилаються на вузол WBS: матриця будується на вашому плані, а не на загальних словах
+- `RC-8` (error): Роль A стоїть щонайменше у двох різних стейкхолдерів, AR рахується як A: якщо за все відповідає одна сторона, спірних призначень у матриці немає
+- `RC-9` (error): Щонайменше дві активності не мають wbs_id: матриця без рішень описує роботу, але не відповідальність
 
 ### План комунікацій, `lr12_communication/communication.csv`
 
@@ -625,6 +632,8 @@ item_id,stakeholder_id,message,channel,frequency,format,owner
 Правила файла:
 
 - `CM-1` (error): Кожен стейкхолдер зі стратегією manage_closely або keep_satisfied має щонайменше один рядок
+- `CM-2` (error): Щонайменше один рядок має frequency on_event: погана новина йде за подією, а не чекає планового звіту
+- `CM-3` (warning): Щонайменше один рядок має регулярну частоту daily, weekly, biweekly або monthly: план з самих подій не будує ритму
 
 ### Потік задач: завершені картки дошки ЛР4 і картки двох реальних спринтів M5, `lr14_metrics/flow.csv`
 
@@ -708,6 +717,7 @@ line_id,category,role_or_item,hours,rate,amount,note
 | ЛР1 | `lr01_case/README.md` | Кейс із перевірюваними джерелами, патерни провалу, висновки для власного проєкту. |
 | ЛР2 | `lr02_approach/README.md` | Розбір трьох кейсів словами: конфлікт критеріїв, ціна вибору, стрес-тест контрактом і підхід для власної теми. Матриця і рішення лежать поруч у approach.csv і decision.csv. |
 | ЛР3 | `lr03_sprint_simulation/sprint_log.md` | Самостійна робота ЛР3: ціль спринта, оцінки і ємність, три дні, реакція на конверти, огляд, ретроспектива. Власного бала не дає, є входом у ЛР4. |
+| M5 | `lr03_sprint_simulation/sprints.md` | Два справжні спринти: ціль, дати, спринт-беклог, огляд, ретроспектива і виконана дія з першої ретроспективи, журнал блокерів. Дати збігаються з velocity.csv. Це блоки A, B і C рубрики M5. |
 | ЛР4 | `lr04_kanban/README.md` | Definition of Workflow, WIP-ліміти і правило їх дотримання, дванадцять карток із трьома датами, наслідки конвертів, cycle time і вузьке місце. Балів не дає, є входом у ЛР14. |
 | ЛР5 | `lr05_charter/README.md` | Мета, business case з порівнянням варіантів рішення, обсяг з переліком «не робимо», обмеження зі свого варіанта, пояснення критеріїв успіху і матриця інтерес-вплив. Критерії лежать поруч у success_criteria.csv, стейкхолдери у stakeholders.csv. |
 | ЛР6 | `lr06_backlog/README.md` | Обраний метод пріоритезації і чому саме він, розрахунок пріоритетів, нарізка першого релізу проти строку і ємності вашого варіанта, посилання на трекер. |
@@ -719,7 +729,7 @@ line_id,category,role_or_item,hours,rate,amount,note
 | ЛР10 | `lr10_review/README.md` | Рішення по кожному отриманому зауваженню з датою, відхилення з причиною. Балів не дає. |
 | ЛР11 | `lr11_risks_quality/README.md` | Топ ризиків червоної зони, як працює процес перегляду реєстру, звідки взявся техборг і що змінилось у портфелі після події курсу. |
 | ЛР11 | `lr11_risks_quality/dod.md` | Чек-лист умов, за яких робота вважається завершеною. Спільний для всіх історій. |
-| ЛР12 | `lr12_communication/README.md` | Широка таблиця RACI для читання людиною і пояснення спірних призначень A. |
+| ЛР12 | `lr12_communication/README.md` | Широка таблиця RACI для читання людиною, пояснення спірних призначень A і те, як план комунікацій закриває власників ризиків. |
 | ЛР13 | `lr13_roleplay/dialogue.md` | Три відповіді стейкхолдерам, другі репліки після конвертів, таблиця ескалації. Балів не дає, є входом у ЛР15. |
 | ЛР14 | `lr14_metrics/README.md` | Діагноз за еталонними даними курсу і за власними flow-метриками з flow.csv, рекомендації за результатом. |
 | ЛР15 | `lr15_status_report/README.md` | Звіт за шаблоном курсу: стан, прогрес, ризики, рішення, яких потребує замовник. |

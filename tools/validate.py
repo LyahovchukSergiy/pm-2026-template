@@ -408,6 +408,14 @@ def rule_st_2(table, tables, report, rule):
                    'жоден стейкхолдер не має стратегії manage_closely')
 
 
+def rule_st_3(table, tables, report, rule):
+    attitudes = set(v for v in table.col('attitude') if v)
+    if attitudes and attitudes == {'supporter'}:
+        report.add(rule['severity'], table.path, 1, rule['id'],
+                   'усі стейкхолдери мають attitude supporter: у карті немає нікого, '
+                   'кому проєкт заважає, і роботи з опором у ній не видно')
+
+
 def rule_sc_1(table, tables, report, rule):
     for idx, row in enumerate(table.rows):
         target = table.cell(row, 'target')
@@ -1235,7 +1243,7 @@ def _by_activity(table):
 
 def rule_rc_2(table, tables, report, rule):
     for activity, rows in sorted(_by_activity(table).items()):
-        count = sum(1 for _, row in rows if table.cell(row, 'role') == 'A')
+        count = sum(1 for _, row in rows if table.cell(row, 'role') in ('A', 'AR'))
         if count != 1:
             report.add(rule['severity'], table.path, table.line(rows[0][0]), rule['id'],
                        'активність %s має %d ролей A, а має бути рівно одна' % (activity, count))
@@ -1243,7 +1251,7 @@ def rule_rc_2(table, tables, report, rule):
 
 def rule_rc_3(table, tables, report, rule):
     for activity, rows in sorted(_by_activity(table).items()):
-        if not any(table.cell(row, 'role') == 'R' for _, row in rows):
+        if not any(table.cell(row, 'role') in ('R', 'AR') for _, row in rows):
             report.add(rule['severity'], table.path, table.line(rows[0][0]), rule['id'],
                        'активність %s не має жодної ролі R: роботу ніхто не виконує' % activity)
 
@@ -1263,6 +1271,42 @@ def rule_rc_5(table, tables, report, rule):
                    'активностей %d, а за правилом щонайменше шість' % count)
 
 
+def rule_rc_6(table, tables, report, rule):
+    for activity, rows in sorted(_by_activity(table).items()):
+        values = set(table.cell(row, 'wbs_id') for _, row in rows)
+        if len(values) > 1:
+            report.add(rule['severity'], table.path, table.line(rows[0][0]), rule['id'],
+                       'активність %s посилається на різні вузли WBS: %s'
+                       % (activity, '; '.join(sorted(v or '(порожньо)' for v in values))))
+
+
+def rule_rc_7(table, tables, report, rule):
+    linked = sum(1 for _, rows in _by_activity(table).items()
+                 if any(table.cell(row, 'wbs_id') for _, row in rows))
+    if linked < 4:
+        report.add(rule['severity'], table.path, 1, rule['id'],
+                   'на вузли WBS посилаються %d активності, а за правилом щонайменше чотири' % linked)
+
+
+def rule_rc_9(table, tables, report, rule):
+    free = sum(1 for _, rows in _by_activity(table).items()
+               if not any(table.cell(row, 'wbs_id') for _, row in rows))
+    if free < 2:
+        report.add(rule['severity'], table.path, 1, rule['id'],
+                   'активностей без вузла WBS %d, а за правилом щонайменше дві: '
+                   'у матриці немає рішень, тільки роботи' % free)
+
+
+def rule_rc_8(table, tables, report, rule):
+    holders = set(table.cell(row, 'stakeholder_id') for row in table.rows
+                  if table.cell(row, 'role') in ('A', 'AR'))
+    holders.discard('')
+    if len(holders) < 2:
+        report.add(rule['severity'], table.path, 1, rule['id'],
+                   'роль A стоїть тільки в %d сторони: у матриці немає жодного спірного призначення'
+                   % len(holders))
+
+
 def rule_cm_1(table, tables, report, rule):
     stakeholders = tables.get('lr05_charter/stakeholders.csv')
     if stakeholders is None:
@@ -1275,6 +1319,22 @@ def rule_cm_1(table, tables, report, rule):
         if strategy in ('manage_closely', 'keep_satisfied') and sid not in covered:
             report.add(rule['severity'], table.path, 1, rule['id'],
                        'стейкхолдер %s зі стратегією %s не має жодного рядка комунікацій' % (sid, strategy))
+
+
+def rule_cm_2(table, tables, report, rule):
+    if not any(table.cell(row, 'frequency') == 'on_event' for row in table.rows):
+        report.add(rule['severity'], table.path, 1, rule['id'],
+                   'у плані немає жодного рядка з частотою on_event: '
+                   'погана новина не має каналу і чекатиме планового звіту')
+
+
+REGULAR_FREQUENCY = ('daily', 'weekly', 'biweekly', 'monthly')
+
+
+def rule_cm_3(table, tables, report, rule):
+    if not any(table.cell(row, 'frequency') in REGULAR_FREQUENCY for row in table.rows):
+        report.add(rule['severity'], table.path, 1, rule['id'],
+                   'у плані немає жодного регулярного рядка: ритму, за яким вас чекають, немає')
 
 
 def rule_fl_1(table, tables, report, rule):
@@ -1345,7 +1405,7 @@ FILE_RULES = {
     'SRC-1': rule_src_1, 'SRC-2': rule_src_2, 'SRC-3': rule_src_3, 'SRC-4': rule_src_4,
     'AP-1': rule_ap_1, 'AP-2': rule_ap_2, 'AP-3': rule_ap_3, 'AP-4': rule_ap_4, 'AP-5': rule_ap_5,
     'DC-1': rule_dc_1, 'DC-2': rule_dc_2, 'DC-3': rule_dc_3,
-    'ST-1': rule_st_1, 'ST-2': rule_st_2,
+    'ST-1': rule_st_1, 'ST-2': rule_st_2, 'ST-3': rule_st_3,
     'SC-1': rule_sc_1, 'SC-2': rule_sc_2, 'SC-3': rule_sc_3,
     'BL-1': rule_bl_1, 'BL-2': rule_bl_2, 'BL-3': rule_bl_3, 'BL-4': rule_bl_4,
     'BL-5': rule_bl_5, 'BL-6': rule_bl_6, 'BL-7': rule_bl_7, 'BL-8': rule_bl_8,
@@ -1364,7 +1424,8 @@ FILE_RULES = {
     'TD-1': rule_td_1, 'TD-2': rule_td_2,
     'CH-1': rule_ch_1, 'CH-2': rule_ch_2, 'CH-3': rule_ch_3,
     'RC-1': rule_rc_1, 'RC-2': rule_rc_2, 'RC-3': rule_rc_3, 'RC-4': rule_rc_4, 'RC-5': rule_rc_5,
-    'CM-1': rule_cm_1,
+    'RC-6': rule_rc_6, 'RC-7': rule_rc_7, 'RC-8': rule_rc_8, 'RC-9': rule_rc_9,
+    'CM-1': rule_cm_1, 'CM-2': rule_cm_2, 'CM-3': rule_cm_3,
     'FL-1': rule_fl_1, 'FL-2': rule_fl_2, 'FL-3': rule_fl_3,
     'BG-1': rule_bg_1, 'BG-2': rule_bg_2, 'BG-3': rule_bg_3, 'BG-5': rule_bg_5,
 }

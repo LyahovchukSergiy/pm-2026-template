@@ -1,6 +1,6 @@
 # Схеми артефактів курсу «Управління ІТ проєктами»
 
-Згенеровано з `tools/schemas.json`, версія схеми **1.11.0**, оновлено 2026-09-06.
+Згенеровано з `tools/schemas.json`, версія схеми **1.13.0**, оновлено 2026-09-06.
 
 Файл не редагується руками: правиться спека, далі запускається
 `python3 tools/generate_schema_docs.py`.
@@ -23,7 +23,7 @@
 | `single_source` | одне число має одне місце: оцінка тільки в estimates.csv, дати і статус тільки у flow.csv, беклог їх не дублює |
 | `stable_ids` | ID фіксуються при створенні і не перенумеровуються до кінця семестру |
 
-Формати ключів: `story_id` як `S-01`, `stakeholder_id` як `ST-01`, `wbs_id` як `1.2.3`, `release_id` як `REL-1`, `flow_item_id` як `F-001`, `risk_id` як `R-01`, `debt_id` як `D-01`, `change_id` як `CH-01`, `activity_id` як `A-01`, `communication_id` як `C-01`, `budget_line_id` як `B-01`, `source_id` як `SRC-01`, `task_id` як `T-01`, `criterion_id` як `SC-01`.
+Формати ключів: `story_id` як `S-01`, `stakeholder_id` як `ST-01`, `wbs_id` як `1.2.3`, `release_id` як `REL-1`, `flow_item_id` як `F-001`, `finding_id` як `FN-01`, `dashboard_metric_id` як `MT-01`, `risk_id` як `R-01`, `debt_id` як `D-01`, `change_id` як `CH-01`, `activity_id` як `A-01`, `communication_id` як `C-01`, `budget_line_id` як `B-01`, `source_id` як `SRC-01`, `task_id` як `T-01`, `criterion_id` як `SC-01`.
 
 
 ## Словники значень
@@ -42,6 +42,7 @@
 - `final_points`: `0`, `1`, `2`, `3`, `5`, `8`, `13`, `21`
 - `flow_type`: `feature`, `bug`, `tech_debt`, `other`
 - `frequency`: `daily`, `weekly`, `biweekly`, `monthly`, `on_event`
+- `impact_dimension`: `scope`, `schedule`, `budget`, `quality`, `risk`
 - `influence`: `low`, `high`
 - `interest`: `low`, `high`
 - `lr02_case`: `C-1`, `C-2`, `C-3`
@@ -49,6 +50,7 @@
 - `priority_method`: `moscow`, `rice`, `wsjf`
 - `pull`: `predictive`, `adaptive`, `neutral`
 - `raci_role`: `R`, `A`, `AR`, `C`, `I`
+- `reference_dataset`: `burndown`, `cfd`, `dora`
 - `risk_category`: `technical`, `external`, `organizational`, `project_management`
 - `risk_status`: `open`, `closed`, `realized`
 - `risk_strategy`: `avoid`, `mitigate`, `transfer`, `accept`, `escalate`
@@ -79,6 +81,9 @@
 | ЛР12 | `lr12_communication/raci.csv` | `activity_id + stakeholder_id` | 18 |
 | ЛР12 | `lr12_communication/communication.csv` | `item_id` | 5 |
 | ЛР14 | `lr14_metrics/flow.csv` | `item_id` | 12 |
+| ЛР14 | `lr14_metrics/findings.csv` | `finding_id` | 6 |
+| ЛР14 | `lr14_metrics/dashboard.csv` | `metric_id` | 3 |
+| ЛР15 | `lr15_status_report/impact.csv` | `dimension` | 5 |
 | ЛР16 | `lr16_budget/budget.csv` | `line_id` | 6 |
 
 ## Карта залежностей портфеля
@@ -108,8 +113,13 @@ flowchart LR
   lr12_communication_raci_csv["ЛР12<br/>lr12_communication/raci.csv"]
   lr12_communication_communication_csv["ЛР12<br/>lr12_communication/communication.csv"]
   lr14_metrics_flow_csv["ЛР14<br/>lr14_metrics/flow.csv"]
+  lr14_metrics_findings_csv["ЛР14<br/>lr14_metrics/findings.csv"]
+  lr14_metrics_dashboard_csv["ЛР14<br/>lr14_metrics/dashboard.csv"]
+  lr15_status_report_impact_csv["ЛР15<br/>lr15_status_report/impact.csv"]
   lr16_budget_budget_csv["ЛР16<br/>lr16_budget/budget.csv"]
   lr01_case_README_md["ЛР1<br/>lr01_case/README.md"]
+  lr15_status_report_README_md["ЛР15<br/>lr15_status_report/README.md"]
+  lr15_status_report_change_request_md["ЛР15<br/>lr15_status_report/change_request.md"]
   lr02_approach_decision_csv -->|case_id| lr02_approach_approach_csv
   lr05_charter_stakeholders_csv -->|accepted_by| lr05_charter_success_criteria_csv
   lr05_charter_success_criteria_csv -->|success_criterion| lr06_backlog_backlog_csv
@@ -123,11 +133,16 @@ flowchart LR
   lr05_charter_stakeholders_csv -->|stakeholder_id| lr12_communication_raci_csv
   lr05_charter_stakeholders_csv -->|stakeholder_id| lr12_communication_communication_csv
   lr06_backlog_backlog_csv -->|story_id| lr14_metrics_flow_csv
+  lr05_charter_stakeholders_csv -->|reader| lr14_metrics_dashboard_csv
+  lr11_risks_quality_risks_csv -->|risk_ids| lr15_status_report_impact_csv
   lr01_case_sources_csv -.->|X-7, X-8| lr01_case_README_md
   lr06_backlog_backlog_csv -.->|X-13| lr07_wbs_roadmap_csv
   lr07_wbs_wbs_csv -.->|X-4| lr16_budget_budget_csv
   lr08_poker_estimates_csv -.->|X-3| lr09_forecast_forecast_csv
   lr09_forecast_velocity_csv -.->|X-15| lr11_risks_quality_risks_csv
+  lr11_risks_quality_changelog_csv -.->|X-18| lr15_status_report_change_request_md
+  lr14_metrics_dashboard_csv -.->|X-17| lr15_status_report_README_md
+  lr14_metrics_dashboard_csv -.->|X-16| lr15_status_report_impact_csv
 ```
 
 Файли без стрілок теж обов'язкові: вони просто не мають спільних
@@ -659,7 +674,89 @@ item_id,story_id,type,created_date,start_date,done_date,blocked_days
 
 - `FL-1` (error): created_date не пізніше start_date, start_date не пізніше done_date
 - `FL-2` (error): blocked_days не перевищує кількість днів між start_date і done_date
-- `FL-3` (warning): Рядків достатньо для перцентиля: щонайменше дванадцять завершених карток
+- `FL-3` (warning): Щонайменше дві картки без story_id: інакше завершені картки дошки ЛР4 у файл не потрапили
+- `FL-4` (warning): Щонайменше два рядки мають story_id: інакше картки двох спринтів у файл не потрапили
+- `FL-5` (warning): Не в усіх карток start_date дорівнює done_date: дошка, де кожна картка взята і закрита того самого дня, заповнена заднім числом
+
+### Знахідки за еталонними даними курсу, `lr14_metrics/findings.csv`
+
+Робота ЛР14. Ключ: `finding_id`. Мінімум рядків: 6.
+
+| Колонка | Тип | Обов'язкова | Обмеження | Опис |
+| --- | --- | :-: | --- | --- |
+| `finding_id` | ідентифікатор | так | формат `^FN-\d{2}$`; унікальне | Ключ знахідки |
+| `dataset` | значення зі словника | так | одне з: `burndown`, `cfd`, `dora` | Датасет курсу, у якому знайдено |
+| `where_seen` | текст | так |  | Де саме видно: день спринта, тиждень CFD або команда DORA |
+| `evidence` | текст | так |  | Число з даних, яким знахідка доводиться |
+| `diagnosis` | текст | так |  | Що відбувалося з проєктом |
+| `action` | текст | так |  | Що робить PM за цією знахідкою |
+
+Рядок заголовків:
+
+```
+finding_id,dataset,where_seen,evidence,diagnosis,action
+```
+
+Правила файла:
+
+- `FD-1` (error): Кожен із трьох датасетів курсу має щонайменше дві знахідки: по одному рядку на датасет це перелік, а не діагноз
+- `FD-2` (error): evidence містить щонайменше одне число: знахідка без числа з даних недоказова
+- `FD-3` (warning): action не є наміром спостерігати: «стежити», «моніторити», «контролювати» і «тримати на контролі» це не дія
+
+### Дашборд стейкхолдера, `lr14_metrics/dashboard.csv`
+
+Робота ЛР14. Ключ: `metric_id`. Мінімум рядків: 3.
+
+| Колонка | Тип | Обов'язкова | Обмеження | Опис |
+| --- | --- | :-: | --- | --- |
+| `metric_id` | ідентифікатор | так | формат `^MT-\d{2}$`; унікальне | Ключ метрики на дашборді |
+| `metric` | текст | так |  | Назва метрики |
+| `value` | текст | так |  | Поточне значення з одиницею виміру |
+| `source_file` | текст | так |  | Файл портфеля, з якого число береться |
+| `reader` | ідентифікатор | так | посилання на `lr05_charter/stakeholders.csv:stakeholder_id` | Хто це читає |
+| `threshold` | текст | так |  | Межа, за якою метрика стає червоною |
+| `decision` | текст | так |  | Рішення, яке ухвалюється після переходу межі |
+
+Рядок заголовків:
+
+```
+metric_id,metric,value,source_file,reader,threshold,decision
+```
+
+Правила файла:
+
+- `DB-1` (error): Метрик від трьох до п'яти: дашборд на двадцять чисел не читає ніхто
+- `DB-2` (error): value містить число: «в межах норми» це не значення метрики
+- `DB-3` (warning): Щонайменше одна метрика береться з lr14_metrics/flow.csv: дашборд без власного потоку зібраний з чужих чисел
+- `DB-4` (error): threshold містить число або дату: межа, яку не можна перетнути, це не межа
+- `DB-5` (warning): decision не є спостереженням: «проаналізувати», «звернути увагу», «розібратись» і «взяти до уваги» це не рішення
+
+### Вплив зміни на п'ять вимірів, `lr15_status_report/impact.csv`
+
+Робота ЛР15. Ключ: `dimension`. Мінімум рядків: 5.
+
+| Колонка | Тип | Обов'язкова | Обмеження | Опис |
+| --- | --- | :-: | --- | --- |
+| `dimension` | значення зі словника | так | одне з: `scope`, `schedule`, `budget`, `quality`, `risk`; унікальне | Вимір впливу: обсяг, строк, бюджет, якість, ризики |
+| `before` | текст | так |  | Стан без зміни, як він стоїть у портфелі зараз |
+| `after` | текст | так |  | Стан, який настане, якщо зміну взяти; рахується незалежно від ухваленого рішення |
+| `delta` | текст | так |  | Різниця одним числом або назвою того, що саме змінюється |
+| `risk_ids` | список ідентифікаторів | ні | посилання на `lr11_risks_quality/risks.csv:risk_id` | Ризики реєстру, які зміна зачіпає; обов'язкові в рядку risk |
+| `source_file` | текст | так |  | Файл портфеля, з якого взяте число |
+| `note` | текст | так |  | Одне речення: що ця різниця означає для проєкту |
+
+Рядок заголовків:
+
+```
+dimension,before,after,delta,risk_ids,source_file,note
+```
+
+Правила файла:
+
+- `IM-1` (error): У рядках scope, schedule і budget поля before і after містять число
+- `IM-2` (error): Рядок risk має непорожній risk_ids: зміна, яка не зачепила жодного ризику реєстру, не оцінена
+- `IM-3` (error): Щонайменше в трьох рядках before і after різні: зміна, після якої в портфелі нічого не рухається, зміною не є
+- `IM-4` (warning): delta не є оцінним словом без числа на кшталт незначний, суттєвий або мінімальний
 
 ### Кошторис проєкту, `lr16_budget/budget.csv`
 
@@ -694,7 +791,7 @@ line_id,category,role_or_item,hours,rate,amount,note
 | Правило | Рівень | Опис |
 | :-: | :-: | --- |
 | `X-1` | error | Кожен story_id в estimates.csv, votes.csv, risks.csv, changelog.csv і flow.csv існує в backlog.csv |
-| `X-2` | error | Кожен stakeholder_id у raci.csv, communication.csv і success_criteria.csv існує в stakeholders.csv |
+| `X-2` | error | Кожен stakeholder_id у raci.csv, communication.csv, success_criteria.csv і dashboard.csv існує в lr05_charter/stakeholders.csv |
 | `X-3` | error | remaining_points у forecast.csv дорівнює сумі final_estimate історій сценарію з estimates.csv |
 | `X-4` | warning | Сума hours категорії labor у budget.csv відрізняється від суми estimate_hours листових вузлів wbs.csv не більше ніж на 15 відсотків |
 | `X-5` | warning | Кожна історія з release REL-1 у backlog.csv присутня в estimates.csv: план першого релізу оцінений |
@@ -708,6 +805,9 @@ line_id,category,role_or_item,hours,rate,amount,note
 | `X-13` | error | Кожне значення release у lr06_backlog/backlog.csv існує в lr07_wbs/roadmap.csv |
 | `X-14` | warning | Кожен criterion_id зі lr05_charter/success_criteria.csv згаданий щонайменше в одній історії першого релізу |
 | `X-15` | warning | Дата перегляду ризиків у risks.csv не раніша за кінець першого спринта у velocity.csv: реєстр переглядають після роботи, а не до неї |
+| `X-16` | error | Кожен source_file у lr14_metrics/dashboard.csv і lr15_status_report/impact.csv це шлях до файла, який існує і має рядки: метрика з порожньої заготовки шаблону рахується нізвідки |
+| `X-17` | error | У lr15_status_report/README.md названо щонайменше три метрики формату MT-NN, і кожна з них існує в lr14_metrics/dashboard.csv: статус-звіт стоїть на числах дашборда |
+| `X-18` | error | Рішення в lr15_status_report/change_request.md збігається з рішенням рядка course_event у lr11_risks_quality/changelog.csv: approve це accepted, reject це rejected, defer це deferred |
 
 ## Артефакти у Markdown
 
@@ -731,9 +831,9 @@ line_id,category,role_or_item,hours,rate,amount,note
 | ЛР11 | `lr11_risks_quality/dod.md` | Чек-лист умов, за яких робота вважається завершеною. Спільний для всіх історій. |
 | ЛР12 | `lr12_communication/README.md` | Широка таблиця RACI для читання людиною, пояснення спірних призначень A і те, як план комунікацій закриває власників ризиків. |
 | ЛР13 | `lr13_roleplay/dialogue.md` | Три відповіді стейкхолдерам, другі репліки після конвертів, таблиця ескалації. Балів не дає, є входом у ЛР15. |
-| ЛР14 | `lr14_metrics/README.md` | Діагноз за еталонними даними курсу і за власними flow-метриками з flow.csv, рекомендації за результатом. |
-| ЛР15 | `lr15_status_report/README.md` | Звіт за шаблоном курсу: стан, прогрес, ризики, рішення, яких потребує замовник. |
-| ЛР15 | `lr15_status_report/change_request.md` | Що просить замовник, скільки це коштує в обсязі, строку, бюджеті, якості і ризиках, яке рішення ухвалено: approve, reject або defer. |
+| ЛР14 | `lr14_metrics/README.md` | Головні знахідки за еталонними даними курсу, висновок DORA, власні числа потоку (перцентилі cycle time і throughput), пояснення складу дашборда і метрика, яку найлегше накрутити. |
+| ЛР15 | `lr15_status_report/README.md` | Звіт на одну сторінку за структурою курсу: RAG-статус із критерієм, головне трьома реченнями, топ-3 ризики, три числа з дашборда і те, якого рішення ви просите в стейкхолдера. |
+| ЛР15 | `lr15_status_report/change_request.md` | Що просить замовник, варіанти дій, рішення approve, reject або defer і три речення для замовника. Числа впливу лежать поруч в impact.csv. |
 | ЛР16 | `lr16_budget/README.md` | Валюта проєкту, відсоток contingency і звідки він узявся, порівняння Fixed Price проти Time and Material і обрана модель. |
 | ЛР17 | `lr17_ai_assistant/README.md` | Що автоматизували, промпти, і головне: де інструмент помилявся і як це виявили. |
 | ЛР18 | `lr18_closure/closure_report.md` | Що прийнято, що не завершено, як передається продукт, яка цінність отримана, lessons learned. Здається в репозиторій до пари захисту. |

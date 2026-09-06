@@ -1,5 +1,5 @@
 {
-  "schema_version": "1.11.0",
+  "schema_version": "1.13.0",
   "updated": "2026-09-06",
   "course": "Управління ІТ проєктами, 2026",
   "note": "Джерело правди для схем артефактів. Валідатор, умови робіт і шаблон репозиторію студента беруть колонки звідси. Правити тільки тут, далі перегенерувати SCHEMAS.md і шаблони.",
@@ -22,6 +22,8 @@
       "wbs_id": "1.2.3",
       "release_id": "REL-1",
       "flow_item_id": "F-001",
+      "finding_id": "FN-01",
+      "dashboard_metric_id": "MT-01",
       "risk_id": "R-01",
       "debt_id": "D-01",
       "change_id": "CH-01",
@@ -90,6 +92,11 @@
       "bug",
       "tech_debt",
       "other"
+    ],
+    "reference_dataset": [
+      "burndown",
+      "cfd",
+      "dora"
     ],
     "risk_category": [
       "technical",
@@ -198,6 +205,13 @@
       "accepted",
       "rejected",
       "deferred"
+    ],
+    "impact_dimension": [
+      "scope",
+      "schedule",
+      "budget",
+      "quality",
+      "risk"
     ]
   },
   "files": [
@@ -1757,7 +1771,239 @@
         {
           "id": "FL-3",
           "severity": "warning",
-          "text": "Рядків достатньо для перцентиля: щонайменше дванадцять завершених карток"
+          "text": "Щонайменше дві картки без story_id: інакше завершені картки дошки ЛР4 у файл не потрапили"
+        },
+        {
+          "id": "FL-4",
+          "severity": "warning",
+          "text": "Щонайменше два рядки мають story_id: інакше картки двох спринтів у файл не потрапили"
+        },
+        {
+          "id": "FL-5",
+          "severity": "warning",
+          "text": "Не в усіх карток start_date дорівнює done_date: дошка, де кожна картка взята і закрита того самого дня, заповнена заднім числом"
+        }
+      ]
+    },
+    {
+      "path": "lr14_metrics/findings.csv",
+      "work": "ЛР14",
+      "title": "Знахідки за еталонними даними курсу",
+      "key": "finding_id",
+      "min_rows": 6,
+      "columns": [
+        {
+          "name": "finding_id",
+          "type": "id",
+          "pattern": "^FN-\\d{2}$",
+          "required": true,
+          "unique": true,
+          "description": "Ключ знахідки"
+        },
+        {
+          "name": "dataset",
+          "type": "enum",
+          "enum": "reference_dataset",
+          "required": true,
+          "description": "Датасет курсу, у якому знайдено"
+        },
+        {
+          "name": "where_seen",
+          "type": "text",
+          "required": true,
+          "description": "Де саме видно: день спринта, тиждень CFD або команда DORA"
+        },
+        {
+          "name": "evidence",
+          "type": "text",
+          "required": true,
+          "description": "Число з даних, яким знахідка доводиться"
+        },
+        {
+          "name": "diagnosis",
+          "type": "text",
+          "required": true,
+          "description": "Що відбувалося з проєктом"
+        },
+        {
+          "name": "action",
+          "type": "text",
+          "required": true,
+          "description": "Що робить PM за цією знахідкою"
+        }
+      ],
+      "rules": [
+        {
+          "id": "FD-1",
+          "severity": "error",
+          "text": "Кожен із трьох датасетів курсу має щонайменше дві знахідки: по одному рядку на датасет це перелік, а не діагноз"
+        },
+        {
+          "id": "FD-2",
+          "severity": "error",
+          "text": "evidence містить щонайменше одне число: знахідка без числа з даних недоказова"
+        },
+        {
+          "id": "FD-3",
+          "severity": "warning",
+          "text": "action не є наміром спостерігати: «стежити», «моніторити», «контролювати» і «тримати на контролі» це не дія"
+        }
+      ]
+    },
+    {
+      "path": "lr14_metrics/dashboard.csv",
+      "work": "ЛР14",
+      "title": "Дашборд стейкхолдера",
+      "key": "metric_id",
+      "min_rows": 3,
+      "columns": [
+        {
+          "name": "metric_id",
+          "type": "id",
+          "pattern": "^MT-\\d{2}$",
+          "required": true,
+          "unique": true,
+          "description": "Ключ метрики на дашборді"
+        },
+        {
+          "name": "metric",
+          "type": "text",
+          "required": true,
+          "description": "Назва метрики"
+        },
+        {
+          "name": "value",
+          "type": "text",
+          "required": true,
+          "description": "Поточне значення з одиницею виміру"
+        },
+        {
+          "name": "source_file",
+          "type": "text",
+          "required": true,
+          "description": "Файл портфеля, з якого число береться"
+        },
+        {
+          "name": "reader",
+          "type": "id",
+          "ref": "lr05_charter/stakeholders.csv:stakeholder_id",
+          "required": true,
+          "description": "Хто це читає"
+        },
+        {
+          "name": "threshold",
+          "type": "text",
+          "required": true,
+          "description": "Межа, за якою метрика стає червоною"
+        },
+        {
+          "name": "decision",
+          "type": "text",
+          "required": true,
+          "description": "Рішення, яке ухвалюється після переходу межі"
+        }
+      ],
+      "rules": [
+        {
+          "id": "DB-1",
+          "severity": "error",
+          "text": "Метрик від трьох до п'яти: дашборд на двадцять чисел не читає ніхто"
+        },
+        {
+          "id": "DB-2",
+          "severity": "error",
+          "text": "value містить число: «в межах норми» це не значення метрики"
+        },
+        {
+          "id": "DB-3",
+          "severity": "warning",
+          "text": "Щонайменше одна метрика береться з lr14_metrics/flow.csv: дашборд без власного потоку зібраний з чужих чисел"
+        },
+        {
+          "id": "DB-4",
+          "severity": "error",
+          "text": "threshold містить число або дату: межа, яку не можна перетнути, це не межа"
+        },
+        {
+          "id": "DB-5",
+          "severity": "warning",
+          "text": "decision не є спостереженням: «проаналізувати», «звернути увагу», «розібратись» і «взяти до уваги» це не рішення"
+        }
+      ]
+    },
+    {
+      "path": "lr15_status_report/impact.csv",
+      "work": "ЛР15",
+      "title": "Вплив зміни на п'ять вимірів",
+      "key": "dimension",
+      "min_rows": 5,
+      "columns": [
+        {
+          "name": "dimension",
+          "type": "enum",
+          "enum": "impact_dimension",
+          "required": true,
+          "unique": true,
+          "description": "Вимір впливу: обсяг, строк, бюджет, якість, ризики"
+        },
+        {
+          "name": "before",
+          "type": "text",
+          "required": true,
+          "description": "Стан без зміни, як він стоїть у портфелі зараз"
+        },
+        {
+          "name": "after",
+          "type": "text",
+          "required": true,
+          "description": "Стан, який настане, якщо зміну взяти; рахується незалежно від ухваленого рішення"
+        },
+        {
+          "name": "delta",
+          "type": "text",
+          "required": true,
+          "description": "Різниця одним числом або назвою того, що саме змінюється"
+        },
+        {
+          "name": "risk_ids",
+          "type": "id_list",
+          "ref": "lr11_risks_quality/risks.csv:risk_id",
+          "required": false,
+          "description": "Ризики реєстру, які зміна зачіпає; обов'язкові в рядку risk"
+        },
+        {
+          "name": "source_file",
+          "type": "text",
+          "required": true,
+          "description": "Файл портфеля, з якого взяте число"
+        },
+        {
+          "name": "note",
+          "type": "text",
+          "required": true,
+          "description": "Одне речення: що ця різниця означає для проєкту"
+        }
+      ],
+      "rules": [
+        {
+          "id": "IM-1",
+          "severity": "error",
+          "text": "У рядках scope, schedule і budget поля before і after містять число"
+        },
+        {
+          "id": "IM-2",
+          "severity": "error",
+          "text": "Рядок risk має непорожній risk_ids: зміна, яка не зачепила жодного ризику реєстру, не оцінена"
+        },
+        {
+          "id": "IM-3",
+          "severity": "error",
+          "text": "Щонайменше в трьох рядках before і after різні: зміна, після якої в портфелі нічого не рухається, зміною не є"
+        },
+        {
+          "id": "IM-4",
+          "severity": "warning",
+          "text": "delta не є оцінним словом без числа на кшталт незначний, суттєвий або мінімальний"
         }
       ]
     },
@@ -1855,7 +2101,7 @@
     {
       "id": "X-2",
       "severity": "error",
-      "text": "Кожен stakeholder_id у raci.csv, communication.csv і success_criteria.csv існує в stakeholders.csv"
+      "text": "Кожен stakeholder_id у raci.csv, communication.csv, success_criteria.csv і dashboard.csv існує в lr05_charter/stakeholders.csv"
     },
     {
       "id": "X-3",
@@ -1921,6 +2167,21 @@
       "id": "X-15",
       "severity": "warning",
       "text": "Дата перегляду ризиків у risks.csv не раніша за кінець першого спринта у velocity.csv: реєстр переглядають після роботи, а не до неї"
+    },
+    {
+      "id": "X-16",
+      "severity": "error",
+      "text": "Кожен source_file у lr14_metrics/dashboard.csv і lr15_status_report/impact.csv це шлях до файла, який існує і має рядки: метрика з порожньої заготовки шаблону рахується нізвідки"
+    },
+    {
+      "id": "X-17",
+      "severity": "error",
+      "text": "У lr15_status_report/README.md названо щонайменше три метрики формату MT-NN, і кожна з них існує в lr14_metrics/dashboard.csv: статус-звіт стоїть на числах дашборда"
+    },
+    {
+      "id": "X-18",
+      "severity": "error",
+      "text": "Рішення в lr15_status_report/change_request.md збігається з рішенням рядка course_event у lr11_risks_quality/changelog.csv: approve це accepted, reject це rejected, defer це deferred"
     }
   ],
   "markdown_artifacts": [
@@ -2053,19 +2314,21 @@
       "path": "lr14_metrics/README.md",
       "work": "ЛР14",
       "title": "Аналіз метрик",
-      "hint": "Діагноз за еталонними даними курсу і за власними flow-метриками з flow.csv, рекомендації за результатом."
+      "hint": "Головні знахідки за еталонними даними курсу, висновок DORA, власні числа потоку (перцентилі cycle time і throughput), пояснення складу дашборда і метрика, яку найлегше накрутити.",
+      "skeleton": "tools/skeletons/lr14_metrics_README.md"
     },
     {
       "path": "lr15_status_report/README.md",
       "work": "ЛР15",
       "title": "Статус-звіт для стейкхолдера",
-      "hint": "Звіт за шаблоном курсу: стан, прогрес, ризики, рішення, яких потребує замовник."
+      "hint": "Звіт на одну сторінку за структурою курсу: RAG-статус із критерієм, головне трьома реченнями, топ-3 ризики, три числа з дашборда і те, якого рішення ви просите в стейкхолдера.",
+      "skeleton": "tools/skeletons/lr15_status_report_README.md"
     },
     {
       "path": "lr15_status_report/change_request.md",
       "work": "ЛР15",
       "title": "Запит на зміну",
-      "hint": "Що просить замовник, скільки це коштує в обсязі, строку, бюджеті, якості і ризиках, яке рішення ухвалено: approve, reject або defer.",
+      "hint": "Що просить замовник, варіанти дій, рішення approve, reject або defer і три речення для замовника. Числа впливу лежать поруч в impact.csv.",
       "skeleton": "tools/skeletons/lr15_change_request.md"
     },
     {

@@ -1363,9 +1363,166 @@ def rule_fl_2(table, tables, report, rule):
 
 
 def rule_fl_3(table, tables, report, rule):
-    if len(table.rows) < 12:
+    empty_ids = [row for row in table.rows if not table.cell(row, 'story_id')]
+    if len(empty_ids) < 2:
         report.add(rule['severity'], table.path, 1, rule['id'],
-                   'карток %d, для перцентиля потрібно щонайменше дванадцять' % len(table.rows))
+                   'карток без story_id %d: завершені картки дошки ЛР4 у файл не потрапили'
+                   % len(empty_ids))
+
+
+def rule_fl_4(table, tables, report, rule):
+    filled_ids = [v for v in table.col('story_id') if v]
+    if len(filled_ids) < 2:
+        report.add(rule['severity'], table.path, 1, rule['id'],
+                   'карток з story_id %d: історії двох спринтів у файл не потрапили'
+                   % len(filled_ids))
+
+
+def rule_fl_5(table, tables, report, rule):
+    same = 0
+    counted = 0
+    for row in table.rows:
+        start = parse_date(table.cell(row, 'start_date'))
+        done = parse_date(table.cell(row, 'done_date'))
+        if not start or not done:
+            continue
+        counted += 1
+        if start == done:
+            same += 1
+    if counted and same == counted:
+        report.add(rule['severity'], table.path, 1, rule['id'],
+                   'усі %d карток взяті і закриті того самого дня: cycle time скрізь нуль, '
+                   'і перцентиль рахувати нема на чому' % counted)
+
+
+REFERENCE_DATASETS = ('burndown', 'cfd', 'dora')
+WATCH_WORDS = ('стеж', 'моніто', 'контролюва', 'слідкув', 'тримати на контролі',
+               'спостеріга', 'наглядати')
+
+
+def rule_fd_1(table, tables, report, rule):
+    for name in REFERENCE_DATASETS:
+        count = sum(1 for v in table.col('dataset') if v == name)
+        if count < 2:
+            report.add(rule['severity'], table.path, 1, rule['id'],
+                       'знахідок по датасету %s лише %d, а потрібно щонайменше дві'
+                       % (name, count))
+
+
+def rule_fd_2(table, tables, report, rule):
+    for idx, row in enumerate(table.rows):
+        evidence = table.cell(row, 'evidence')
+        if evidence and not DIGIT_RE.search(evidence):
+            report.add(rule['severity'], table.path, table.line(idx), rule['id'],
+                       'у доказі знахідки %s немає жодного числа з даних'
+                       % table.cell(row, 'finding_id'))
+
+
+def rule_fd_3(table, tables, report, rule):
+    for idx, row in enumerate(table.rows):
+        action = table.cell(row, 'action').lower()
+        if any(word in action for word in WATCH_WORDS):
+            report.add(rule['severity'], table.path, table.line(idx), rule['id'],
+                       'дія за знахідкою %s це намір спостерігати, а не дія'
+                       % table.cell(row, 'finding_id'))
+
+
+def rule_db_1(table, tables, report, rule):
+    if len(table.rows) > 5:
+        report.add(rule['severity'], table.path, 1, rule['id'],
+                   'метрик на дашборді %d, а має бути від трьох до п\'яти' % len(table.rows))
+
+
+def rule_db_2(table, tables, report, rule):
+    for idx, row in enumerate(table.rows):
+        value = table.cell(row, 'value')
+        if value and not DIGIT_RE.search(value):
+            report.add(rule['severity'], table.path, table.line(idx), rule['id'],
+                       'значення метрики %s не містить числа' % table.cell(row, 'metric_id'))
+
+
+def rule_db_3(table, tables, report, rule):
+    if not any('flow.csv' in v for v in table.col('source_file')):
+        report.add(rule['severity'], table.path, 1, rule['id'],
+                   'жодна метрика не береться з lr14_metrics/flow.csv: '
+                   'на дашборді немає власного потоку')
+
+
+OBSERVATION_WORDS = ('проаналізува', 'звернути увагу', 'розібрат', 'взяти до уваги',
+                     'переглянути ситуац', 'подивит', 'оцінити ситуац')
+
+
+def rule_db_4(table, tables, report, rule):
+    for idx, row in enumerate(table.rows):
+        threshold = table.cell(row, 'threshold')
+        if threshold and not DIGIT_RE.search(threshold):
+            report.add(rule['severity'], table.path, table.line(idx), rule['id'],
+                       'межа метрики %s не містить числа: перетнути її неможливо'
+                       % table.cell(row, 'metric_id'))
+
+
+def rule_db_5(table, tables, report, rule):
+    for idx, row in enumerate(table.rows):
+        decision = table.cell(row, 'decision').lower()
+        if any(word in decision for word in OBSERVATION_WORDS):
+            report.add(rule['severity'], table.path, table.line(idx), rule['id'],
+                       'рішення за метрикою %s це спостереження, а не дія'
+                       % table.cell(row, 'metric_id'))
+
+
+VAGUE_DELTA_WORDS = ('незначн', 'суттєв', 'мінімальн', 'великий', 'велика', 'велике',
+                     'помірн', 'невелик', 'значн', 'критичн', 'низьк', 'висок')
+
+
+def _impact_row(table, name):
+    for idx, row in enumerate(table.rows):
+        if table.cell(row, 'dimension') == name:
+            return idx, row
+    return None, None
+
+
+def rule_im_1(table, tables, report, rule):
+    for name in ('scope', 'schedule', 'budget'):
+        idx, row = _impact_row(table, name)
+        if row is None:
+            continue
+        for field in ('before', 'after'):
+            value = table.cell(row, field)
+            if value and not DIGIT_RE.search(value):
+                report.add(rule['severity'], table.path, table.line(idx), rule['id'],
+                           'у вимірі %s поле `%s` не містить числа: '
+                           'обсяг, строк і бюджет міряються числом' % (name, field))
+
+
+def rule_im_2(table, tables, report, rule):
+    idx, row = _impact_row(table, 'risk')
+    if row is None:
+        return
+    if not table.cell(row, 'risk_ids').strip():
+        report.add(rule['severity'], table.path, table.line(idx), rule['id'],
+                   'у вимірі risk порожній risk_ids: зміна, яка не зачепила жодного '
+                   'рядка реєстру ризиків, не оцінена')
+
+
+def rule_im_3(table, tables, report, rule):
+    moved = sum(1 for row in table.rows
+                if table.cell(row, 'before').strip() != table.cell(row, 'after').strip())
+    if moved < 3:
+        report.add(rule['severity'], table.path, 1, rule['id'],
+                   'рядків, у яких before і after різні, %d, а потрібно щонайменше три: '
+                   'зміна, після якої в портфелі нічого не рухається, зміною не є' % moved)
+
+
+def rule_im_4(table, tables, report, rule):
+    for idx, row in enumerate(table.rows):
+        delta = table.cell(row, 'delta')
+        if not delta or DIGIT_RE.search(delta):
+            continue
+        low = delta.lower()
+        if any(word in low for word in VAGUE_DELTA_WORDS):
+            report.add(rule['severity'], table.path, table.line(idx), rule['id'],
+                       'різниця у вимірі %s названа оцінним словом без числа'
+                       % table.cell(row, 'dimension'))
 
 
 def rule_bg_1(table, tables, report, rule):
@@ -1427,6 +1584,11 @@ FILE_RULES = {
     'RC-6': rule_rc_6, 'RC-7': rule_rc_7, 'RC-8': rule_rc_8, 'RC-9': rule_rc_9,
     'CM-1': rule_cm_1, 'CM-2': rule_cm_2, 'CM-3': rule_cm_3,
     'FL-1': rule_fl_1, 'FL-2': rule_fl_2, 'FL-3': rule_fl_3,
+    'FL-4': rule_fl_4, 'FL-5': rule_fl_5,
+    'FD-1': rule_fd_1, 'FD-2': rule_fd_2, 'FD-3': rule_fd_3,
+    'DB-1': rule_db_1, 'DB-2': rule_db_2, 'DB-3': rule_db_3,
+    'DB-4': rule_db_4, 'DB-5': rule_db_5,
+    'IM-1': rule_im_1, 'IM-2': rule_im_2, 'IM-3': rule_im_3, 'IM-4': rule_im_4,
     'BG-1': rule_bg_1, 'BG-2': rule_bg_2, 'BG-3': rule_bg_3, 'BG-5': rule_bg_5,
 }
 
@@ -1653,10 +1815,140 @@ def cross_x15(root, tables, report, rule):
                        % (risks.cell(row, 'risk_id'), seen, first_end))
 
 
+def _source_file_body(root, source):
+    """Рядки файла-джерела без рядка заголовків CSV. None, якщо файла немає."""
+    full = os.path.join(root, source)
+    if not os.path.isfile(full):
+        return None
+    with open(full, encoding='utf-8-sig') as fh:
+        lines = [line for line in fh.read().splitlines() if line.strip()]
+    return lines[1:] if source.endswith('.csv') else lines
+
+
+def cross_x16(root, tables, report, rule):
+    # Той самий контракт для двох файлів: дашборд ЛР14 і таблиця впливу ЛР15.
+    targets = (('lr14_metrics/dashboard.csv', 'metric_id', 'метрика'),
+               ('lr15_status_report/impact.csv', 'dimension', 'вимір'))
+    for path, key_col, noun in targets:
+        table = tables.get(path)
+        if not filled(table):
+            continue
+        for idx, row in enumerate(table.rows):
+            source = table.cell(row, 'source_file').strip()
+            if not source:
+                continue
+            body = _source_file_body(root, source)
+            if body is None:
+                report.add(rule['severity'], path, table.line(idx), rule['id'],
+                           '%s %s посилається на `%s`, а такого файла в портфелі немає'
+                           % (noun, table.cell(row, key_col), source))
+                continue
+            if not body:
+                report.add(rule['severity'], path, table.line(idx), rule['id'],
+                           '%s %s береться з файла `%s`, у якому немає рядків: '
+                           'це заготовка з шаблону, а не джерело числа'
+                           % (noun, table.cell(row, key_col), source))
+
+
+def _lr15_started(tables):
+    """ЛР15 вважається початою, коли заповнена її власна таблиця впливу."""
+    return filled(tables.get('lr15_status_report/impact.csv'))
+
+
+def _read_text(root, rel_path):
+    full = os.path.join(root, rel_path)
+    if not os.path.isfile(full):
+        return None
+    with open(full, encoding='utf-8-sig') as fh:
+        return fh.read()
+
+
+def cross_x17(root, tables, report, rule):
+    if not _lr15_started(tables):
+        return
+    dashboard = tables.get('lr14_metrics/dashboard.csv')
+    if not filled(dashboard):
+        return
+    path = 'lr15_status_report/README.md'
+    text = _read_text(root, path)
+    if text is None:
+        report.add(rule['severity'], path, 1, rule['id'],
+                   'файла статус-звіту немає, а таблиця впливу вже заповнена')
+        return
+    known = set(v for v in dashboard.col('metric_id') if v)
+    named = []
+    for key in re.findall(r'MT-\d{2}', text):
+        if key not in named:
+            named.append(key)
+    missing = [k for k in named if k not in known]
+    for key in missing:
+        report.add(rule['severity'], path, 1, rule['id'],
+                   'звіт посилається на метрику %s, якої немає в lr14_metrics/dashboard.csv' % key)
+    if len(named) < 3:
+        report.add(rule['severity'], path, 1, rule['id'],
+                   'у звіті названо метрик дашборда: %d, а потрібно щонайменше три' % len(named))
+
+
+DECISION_WORDS = (('approve', 'accepted'), ('reject', 'rejected'), ('defer', 'deferred'))
+
+
+def _change_request_decision(text):
+    """Рішення із change_request.md. None, якщо його не видно однозначно."""
+    section = text
+    head = re.search(r'^##\s*4\.', text, re.M)
+    if head:
+        tail = re.search(r'^##\s', text[head.end():], re.M)
+        section = text[head.end():head.end() + tail.start()] if tail else text[head.end():]
+    line = None
+    for candidate in section.splitlines():
+        if re.match(r'^\s*\|\s*Рішення\s*\|', candidate):
+            line = candidate
+            break
+    scope = line if line is not None else section
+    found = set()
+    for word, value in DECISION_WORDS:
+        if re.search(word, scope, re.I):
+            found.add(value)
+    if len(found) == 1:
+        return found.pop()
+    return None
+
+
+def cross_x18(root, tables, report, rule):
+    if not _lr15_started(tables):
+        return
+    path = 'lr15_status_report/change_request.md'
+    text = _read_text(root, path)
+    if text is None:
+        report.add(rule['severity'], path, 1, rule['id'],
+                   'файла запиту на зміну немає, а таблиця впливу вже заповнена')
+        return
+    decision = _change_request_decision(text)
+    if decision is None:
+        report.add(rule['severity'], path, 1, rule['id'],
+                   'у розділі 4 не видно одного рішення: у рядку `Рішення` має лишитись '
+                   'рівно одне слово з approve, reject або defer')
+        return
+    changelog = tables.get('lr11_risks_quality/changelog.csv')
+    if not filled(changelog):
+        return
+    rows = [row for row in changelog.rows if changelog.cell(row, 'source') == 'course_event']
+    if not rows:
+        return
+    rows.sort(key=lambda row: changelog.cell(row, 'date'))
+    logged = changelog.cell(rows[-1], 'decision')
+    if logged and logged != decision:
+        report.add(rule['severity'], path, 1, rule['id'],
+                   'у запиті на зміну рішення `%s`, а в журналі змін за подією курсу `%s`: '
+                   'одна подія не може мати двох рішень на ту саму дату'
+                   % (decision, logged))
+
+
 CROSS_RULES = {'X-4': cross_x4, 'X-5': cross_x5, 'X-6': cross_x6, 'X-7': cross_x7, 'X-8': cross_x8,
                'X-9': cross_x9, 'X-10': cross_x10,
                'X-11': cross_x11, 'X-12': cross_x12,
-               'X-13': cross_x13, 'X-14': cross_x14, 'X-15': cross_x15}
+               'X-13': cross_x13, 'X-14': cross_x14, 'X-15': cross_x15,
+               'X-16': cross_x16, 'X-17': cross_x17, 'X-18': cross_x18}
 # X-1 і X-2 покриті перевіркою посилань колонок, X-3 порахований правилом FC-2.
 CROSS_COVERED = {'X-1', 'X-2', 'X-3'}
 
@@ -1673,6 +1965,9 @@ CROSS_SCOPE = {
     'X-13': ('lr06_backlog', 'lr07_wbs'),
     'X-14': ('lr05_charter', 'lr06_backlog'),
     'X-15': ('lr11_risks_quality', 'lr09_forecast'),
+    'X-16': ('lr14_metrics', 'lr15_status_report'),
+    'X-17': ('lr14_metrics', 'lr15_status_report'),
+    'X-18': ('lr11_risks_quality', 'lr15_status_report'),
 }
 
 

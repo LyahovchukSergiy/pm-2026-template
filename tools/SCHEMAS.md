@@ -1,6 +1,6 @@
 # Схеми артефактів курсу «Управління ІТ проєктами»
 
-Згенеровано з `tools/schemas.json`, версія схеми **1.17.0**, оновлено 2026-09-06.
+Згенеровано з `tools/schemas.json`, версія схеми **1.18.0**, оновлено 2026-09-09.
 
 Файл не редагується руками: правиться спека, далі запускається
 `python3 tools/generate_schema_docs.py`.
@@ -81,7 +81,7 @@
 | ЛР8 | `lr08_poker/estimates.csv` | `story_id` | 8 |
 | ЛР9 | `lr09_forecast/velocity.csv` | `sprint` | 2 |
 | ЛР9 | `lr09_forecast/forecast.csv` | `scenario` | 1 |
-| ЛР11 | `lr11_risks_quality/risks.csv` | `risk_id` | 8 |
+| ЛР11 | `lr11_risks_quality/risks.csv` | `risk_id` | 6 |
 | ЛР11 | `lr11_risks_quality/techdebt.csv` | `debt_id` | 3 |
 | ЛР11 | `lr11_risks_quality/changelog.csv` | `change_id` | 1 |
 | ЛР12 | `lr12_communication/raci.csv` | `activity_id + stakeholder_id` | 18 |
@@ -94,10 +94,10 @@
 | ЛР16 | `lr16_budget/budget.csv` | `line_id` | 6 |
 | ЛР16 | `lr16_budget/plan_fact.csv` | `sprint` | 2 |
 | ЛР17 | `lr17_ai_assistant/tasks.csv` | `item_id` | 8 |
-| ЛР17 | `lr17_ai_assistant/prompts.csv` | `run_id` | 6 |
+| ЛР17 | `lr17_ai_assistant/prompts.csv` | `run_id` | 4 |
 | ЛР17 | `lr17_ai_assistant/errors.csv` | `error_id` | 3 |
 | ЛР17 | `lr17_ai_assistant/time_saved.csv` | `case_id` | 3 |
-| ЛР17 | `lr17_ai_assistant/policy.csv` | `rule_id` | 6 |
+| ЛР17 | `lr17_ai_assistant/policy.csv` | `rule_id` | 5 |
 
 ## Карта залежностей портфеля
 
@@ -525,7 +525,7 @@ scenario,remaining_points,simulations,p50_sprints,p85_sprints,p50_date,p85_date
 
 ### Реєстр ризиків, `lr11_risks_quality/risks.csv`
 
-Робота ЛР11. Ключ: `risk_id`. Мінімум рядків: 8.
+Робота ЛР11. Ключ: `risk_id`. Мінімум рядків: 6.
 
 | Колонка | Тип | Обов'язкова | Обмеження | Опис |
 | --- | --- | :-: | --- | --- |
@@ -896,7 +896,7 @@ item_id,source_line,type,item,origin,owner,note
 
 ### Журнал промптів за семестр, `lr17_ai_assistant/prompts.csv`
 
-Робота ЛР17. Ключ: `run_id`. Мінімум рядків: 6.
+Робота ЛР17. Ключ: `run_id`. Мінімум рядків: 4.
 
 | Колонка | Тип | Обов'язкова | Обмеження | Опис |
 | --- | --- | :-: | --- | --- |
@@ -981,7 +981,7 @@ case_id,task,basis,minutes_manual,minutes_ai,minutes_review,minutes_saved,how_me
 
 ### Правило роботи з AI на власному проєкті, `lr17_ai_assistant/policy.csv`
 
-Робота ЛР17. Ключ: `rule_id`. Мінімум рядків: 6.
+Робота ЛР17. Ключ: `rule_id`. Мінімум рядків: 5.
 
 | Колонка | Тип | Обов'язкова | Обмеження | Опис |
 | --- | --- | :-: | --- | --- |
@@ -1012,7 +1012,7 @@ rule_id,case,mode,owner,check,why
 | `X-1` | error | Кожен story_id в estimates.csv, votes.csv, risks.csv, changelog.csv і flow.csv існує в backlog.csv |
 | `X-2` | error | Кожен stakeholder_id у raci.csv, communication.csv, success_criteria.csv і dashboard.csv існує в lr05_charter/stakeholders.csv |
 | `X-3` | error | remaining_points у forecast.csv дорівнює сумі final_estimate історій сценарію з estimates.csv |
-| `X-4` | warning | Сума hours категорії labor у budget.csv відрізняється від суми estimate_hours листових вузлів wbs.csv не більше ніж на 15 відсотків |
+| `X-4` | warning | Сума hours категорії labor у budget.csv відрізняється від суми estimate_hours листових вузлів wbs.csv не більше ніж на 45 відсотків. Це перевірка порядку величини, а не рівності: кошторис рахується від стелі годин варіанта, а корінь WBS законно лежить між 70 і 100 відсотками тієї ж стелі |
 | `X-5` | warning | Кожна історія з release REL-1 у backlog.csv присутня в estimates.csv: план першого релізу оцінений |
 | `X-6` | error | Версія схеми в README.md вашого репозиторію збігається з версією цієї спеки |
 | `X-7` | error | Кожен source_id із lr01_case/sources.csv згадується в тексті lr01_case/README.md у форматі [SRC-01] |
@@ -1062,7 +1062,7 @@ rule_id,case,mode,owner,check,why
 | ЛР16 | `lr16_budget/README.md` | Rate card і звідки взяті ставки, відсоток contingency, різниця між двома резервами, порівняння Fixed Price проти Time and Material у гривнях, обрана модель з її недоліком і прогноз до завершення за фактичним темпом. |
 | ЛР17 | `lr17_ai_assistant/input_notes.md` | Дослівна копія розділу вашої теми з lr17_meeting_notes.md разом із тегами рядків. |
 | ЛР17 | `lr17_ai_assistant/README.md` | Що автоматизували і що показало порівняння двох версій одного документа, чому саме такі межі в правилі роботи з AI, і повний текст трьох промптів роботи. |
-| ЛР18 | `lr18_closure/closure_report.md` | Що прийнято, що не завершено, як передається продукт, яка цінність отримана, lessons learned. Здається в репозиторій до пари захисту. |
+| ЛР18 | `lr18_closure/closure_report.md` | Що прийнято, що не завершено, як передається продукт, яка цінність отримана, lessons learned. Здається в репозиторій до 23:59 дня пари ЛР19: разом із балами за семестр це допуск до екзамену. |
 
 ## Рівні перевірки
 

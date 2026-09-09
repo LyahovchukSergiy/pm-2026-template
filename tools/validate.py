@@ -1938,9 +1938,10 @@ def cross_x4(root, tables, report, rule):
     parents = set(v for v in wbs.col('parent_id') if v)
     leaves = sum(num(wbs.cell(row, 'estimate_hours')) for row in wbs.rows
                  if wbs.cell(row, 'wbs_id') not in parents)
-    if leaves and abs(labor - leaves) > leaves * 0.15:
+    if leaves and abs(labor - leaves) > leaves * 0.45:
         report.add(rule['severity'], 'lr16_budget/budget.csv', 1, rule['id'],
-                   'годин labor у кошторисі %s, а в листах WBS %s: розбіжність більша за 15 відсотків'
+                   'годин labor у кошторисі %s, а в листах WBS %s: розбіжність більша за 45 відсотків, '
+                   'тобто числа відрізняються не на відсотки, а в рази'
                    % (labor, leaves))
 
 
